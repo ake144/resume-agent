@@ -9,9 +9,20 @@ engine = create_engine(settings.database_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-def get_vector_store(document_name:str = "user_resume") -> PGVector:
+def get_knowledge_vector_store():
+    """Permanent user profile RAG"""
     return PGVector(
-        collection_name=document_name,
-        embeddings=None,  # You can specify your embedding function here
-        connection=engine
+        embeddings=None,
+        collection_name="user_knowledge_base",
+        connection=settings.database_url,
+        use_jsonb=True,
+    )
+
+def get_temp_vector_store():
+    """Temporary jobs & generations"""
+    return PGVector(
+        embeddings= None,
+        collection_name="temporary_documents",
+        connection=settings.database_url,
+        use_jsonb=True,
     )
