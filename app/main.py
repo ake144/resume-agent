@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import asyncio
+from app.agents.matcher import match_job_to_user
+from app.ingestion.job_ingestor import ingest_job
 from app.utils.scheduler import start_scheduler
 import uvicorn
 from app.core.config import settings
@@ -37,7 +39,25 @@ async def root():
 async def health():
     return {"status": "healthy"}
 
-@app.on_event("startup")
+@app.post("/ingest/job")
+async def ingest_user_job(
+    user_id: str,
+    job_text: str,
+    title: str,
+    source_url: str = None
+):
+    return await ingest_job(user_id, job_text, title, source_url)
+    
+
+@app.post("/match/job")
+async def match_job(
+    user_id:str,
+    job_text: str,
+    job_title: str,
+):
+    return await match_job_to_user(user_id, job_text, job_title)
+
+@app.lifespan("startup")
 async def startup_event():
     # Start the scheduler in the background
     asyncio.create_task(start_scheduler())
