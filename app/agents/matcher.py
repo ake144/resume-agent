@@ -1,21 +1,25 @@
+from langchain_core.output_parsers import PydanticOutputParser
 from langchain_groq import ChatGroq
 from llama_index.core import ChatPromptTemplate
 
+from app.models.jobMatch import JobMatchAnalysis
 from app.rag.retriever import retrieve_relevant_resumes
 
 
 llm = ChatGroq(
     model="llama-3.3-70b-versatile",   # Strong reasoning + free tier
     temperature=0.3,
-    max_tokens=1024
+    max_tokens=1200
 )
 
+parser = PydanticOutputParser(pydantic_object=JobMatchAnalysis)
+    
 async def match_job_to_user(user_id:str, job_description:str, job_title:str):
-
+     
     context_docs = await retrieve_relevant_resumes(
         query=job_description,
         user_id=user_id,
-        top_k=5
+        top_k=12
     )
 
     context_text = "\n\n".join([
@@ -24,34 +28,38 @@ async def match_job_to_user(user_id:str, job_description:str, job_title:str):
     ])
 
     prompt  = ChatPromptTemplate.from_template("""
-             You are an expert career coach. Analyze how well the candidate matches this job.
+            You are an expert, honest career matching agent.
 
-                **Job Title:** {job_title}
-                **Job Description:** {job_description}
+            **Job Title:** {job_title}
+            **Full Job Description:** {job_description}
 
-                **Candidate's Relevant Experience:**
-                {context_text}
+            **Candidate's Background (Only use this information):**
+            {context_text}
 
-                Provide a detailed analysis with:
-                1. Match Score (0-100)
-                2. Strong Matches (with specific citations from candidate's data)
-                3. Potential Concerns / Skill Gaps
-                4. Key Tailoring Recommendations
+            {format_instructions}
 
-                Be honest, constructive, and always ground your answer in the provided context.
-                Do not hallucinate experience.
-    """)       
+            Rules:
+            - Only use information present in the Candidate's Background.
+            - Be critical and realistic.
+            - Always cite which document the point comes from.
+            """)    
 
     chain = prompt | llm
 
     response = await chain.ainvoke({
         "job_title": job_title,
         "job_description": job_description,
-        "context_text": context_text or "No relevant experience found in the candidate's data."
+        "context_text": context_text or "No relevant experience found in the candidate's data.",
+        "format_instructions": parser.get_format_instructions()
     })
     return {
         "analysis": response.content,
-        "match_score": extract_score(response.content),  # Placeholder - can be extracted from response if structured output is implemented
+        "sources":[
+            {
+                "type": doc.metadata.get("document_type", "unknown"),
+                "title": doc.metadata.get("title", "no title"), 
+            } for doc in context_docs
+        ],  
         "Sources_used": len(context_docs)
     }                            
                                                
