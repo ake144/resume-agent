@@ -1,5 +1,39 @@
+from langgraph.graph import END, StateGraph
+
+from app.agents.generator import generate_application_package
+from app.agents.matcher import match_job_to_user
 from app.models.workflow import ApplicationState
 
 
 async def match_nodes(state:ApplicationState):
-    analysis = await analyze_match(state)
+    analysis = await match_job_to_user(
+        state['user_id'],
+        state['job_description'],
+        state['job_title']
+    )
+    return {"match_analysis": analysis}
+
+
+async def generate_node(state:ApplicationState):
+
+    application_package = await generate_application_package(
+        state['user_id'],
+        state['job_description'],
+        state['job_title'],
+        "cover_letter"
+    )
+    return {"application": application_package["content"], "final_output": application_package}
+
+def build_application_graph():
+    workflow = StateGraph(ApplicationState)
+
+    workflow.add_node("match", match_nodes)
+    workflow.add_node("generate", generate_node)
+
+    workflow.set_entry_point("match")
+    workflow.add_edge("match", "generate")
+    workflow.add_edge("generate", END)  # Allow going back to matching if user wants to tweak input settings
+    
+    return workflow.compile()
+
+app_graph = build_application_graph()

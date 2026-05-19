@@ -6,6 +6,9 @@ import uvicorn
 # Load environment variables BEFORE importing internal modules
 load_dotenv()
 
+from app.agents.generator import generate_application_package
+from app.agents.workflow import build_application_graph
+
 import asyncio
 from app.agents.matcher import match_job_to_user
 from app.ingestion.job_ingestor import ingest_job
@@ -67,6 +70,29 @@ async def match_job(
     job_title: str,
 ):
     return await match_job_to_user(user_id, job_text, job_title)
+
+@app.post("/generate/application")
+async def generate_application(
+    user_id: str,
+    job_description: str,
+    job_title: str,
+    type: str = "cover_letter"
+):
+    return await generate_application_package(user_id, job_description, job_title, type)
+
+@app.post("/workflow/apply")
+async def full_application_workflow(
+    user_id: str,
+    job_description: str,
+    job_title: str
+):
+    initial_state = {
+        "user_id": user_id,
+        "job_description": job_description,
+        "job_title": job_title
+    }
+    result = await build_application_graph.ainvoke(initial_state)
+    return result
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

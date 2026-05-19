@@ -1,4 +1,5 @@
 from langchain_groq import ChatGroq
+from llama_index.core import ChatPromptTemplate
 
 from app.agents.matcher import match_job_to_user
 
@@ -9,12 +10,12 @@ llm = ChatGroq(
     max_tokens=1500
 )
 
-async def generate_application_package(user_id:str, job_text:str, job_title:str, application_type: str="cover_letter"):
+async def generate_application_package(user_id:str, job_description:str, job_title:str, application_type: str="cover_letter"):
     """
     application_type: cover_letter, upwork_proposal, linkedin_message
     """
 
-    match_result = await match_job_to_user(user_id, job_text, job_title)
+    match_result = await match_job_to_user(user_id, job_description, job_title)
     analysis = match_result["analysis"]
 
     prompt = ChatPromptTemplate.from_tempate(
