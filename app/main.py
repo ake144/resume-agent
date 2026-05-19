@@ -1,20 +1,31 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+import uvicorn
+
+# Load environment variables BEFORE importing internal modules
+load_dotenv()
+
 import asyncio
 from app.agents.matcher import match_job_to_user
 from app.ingestion.job_ingestor import ingest_job
-from app.utils.scheduler import start_scheduler
-import uvicorn
-from app.core.config import settings
-from app.api.v1.router import api_router
+from app.utils.scheduler import start_scheduler, scheduler
 
-load_dotenv()
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start the scheduler
+    start_scheduler()
+    yield
+    # Shutdown the scheduler on app exit
+    scheduler.shutdown()
 
 app = FastAPI(
     title="Resume Agent API",
     description="API for managing and querying resume data using PGVector and Groq",
     version="0.1.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -25,7 +36,7 @@ app.add_middleware(
 )
 
 # Include the main API router
-app.include_router(api_router, prefix="/api/v1")
+# app.include_router(prefix="/api/v1")
 
 @app.get("/")
 async def root():
@@ -56,11 +67,6 @@ async def match_job(
     job_title: str,
 ):
     return await match_job_to_user(user_id, job_text, job_title)
-
-@app.lifespan("startup")
-async def startup_event():
-    # Start the scheduler in the background
-    asyncio.create_task(start_scheduler())
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
