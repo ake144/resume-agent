@@ -1,7 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import uvicorn
+
+from app.core.utils import handle_error
+from app.ingestion.resume_ingestor import ingest_resume
 
 # Load environment variables BEFORE importing internal modules
 load_dotenv()
@@ -60,8 +63,11 @@ async def ingest_user_job(
     title: str,
     source_url: str = None
 ):
-    return await ingest_job(user_id, job_text, title, source_url)
-    
+    try:
+        return await ingest_job(user_id, job_text, title, source_url)
+    except Exception as e:
+        print(f"Error occurred while ingesting job: {e}")
+        handle_error(e, "Failed to ingest job")
 
 @app.post("/match/job")
 async def match_job(
@@ -93,6 +99,21 @@ async def full_application_workflow(
     }
     result = await build_application_graph.ainvoke(initial_state)
     return result
+
+@app.post("/ingest/resume")
+async def ingest_user_resume(
+    user_id: str,
+    file: UploadFile = None,
+    text: str = None,       
+    title: str = "My Resume"
+):
+    try:
+        return await ingest_resume(user_id, file, text, title)
+    except Exception as e:
+        print(f"Error occurred while ingesting resume: {e}")
+        handle_error(e, "Failed to ingest resume")
+
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
