@@ -1,13 +1,12 @@
+from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
 import uvicorn
+
+load_dotenv()
 
 from app.core.utils import handle_error
 from app.ingestion.resume_ingestor import ingest_resume
-
-# Load environment variables BEFORE importing internal modules
-load_dotenv()
 
 from app.agents.generator import generate_application_package
 from app.agents.workflow import build_application_graph

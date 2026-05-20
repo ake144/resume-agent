@@ -1,3 +1,4 @@
+import asyncio
 import io
 from pypdf import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -41,7 +42,7 @@ async def ingest_resume(user_id: str, file: UploadFile = None, text: str = None,
         vector_store = get_knowledge_vector_store()
         ids = [str(uuid.uuid4()) for _ in docs]
 
-        await vector_store.aadd_documents(docs, ids=ids)
+        await asyncio.to_thread(vector_store.add_documents, docs, ids=ids)
 
         logger.info(f"Successfully ingested resume for user {user_id} | Chunks: {len(docs)}")
         

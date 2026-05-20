@@ -1,4 +1,5 @@
-import datetime
+import asyncio
+from datetime import datetime, timedelta
 import uuid
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -27,9 +28,9 @@ async def ingest_job(
     ids = [str(uuid.uuid4()) for _ in docs]
 
     for doc in docs:
-        doc.metadata['expires_at'] = (datetime.utcnow() + datetime.timedelta(days=7)).isoformat()
+        doc.metadata['expires_at'] = (datetime.utcnow() + timedelta(days=7)).isoformat()
 
-    await vector_store.aadd_documents(docs, ids=ids)
+    await asyncio.to_thread(vector_store.add_documents, docs, ids=ids)
 
     return {
         "status": "success",
