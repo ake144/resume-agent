@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import io
 from pypdf import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -35,11 +36,11 @@ async def ingest_resume(user_id: str, file: UploadFile = None, text: str = None,
                 "user_id": user_id,
                 "document_type": "resume",
                 "title": title,
-                "ingested_at": "now"
+                "ingested_at": datetime.datetime.now().isoformat()
             }]
         )
 
-        vector_store = get_knowledge_vector_store()
+        vector_store = get_knowledge_vector_store("user_knowledge_base")
         ids = [str(uuid.uuid4()) for _ in docs]
 
         await asyncio.to_thread(vector_store.add_documents, docs, ids=ids)
