@@ -9,7 +9,7 @@ from app.core.utils import handle_error
 from app.ingestion.resume_ingestor import ingest_resume
 
 from app.agents.generator import generate_application_package
-from app.agents.workflow import build_application_graph
+from app.agents.workflow import app_graph
 
 import asyncio
 from app.agents.matcher import match_job_to_user
@@ -96,7 +96,7 @@ async def full_application_workflow(
         "job_description": job_description,
         "job_title": job_title
     }
-    result = await build_application_graph.ainvoke(initial_state)
+    result = await app_graph.ainvoke(initial_state)
     return result
 
 @app.post("/ingest/resume")

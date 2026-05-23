@@ -1,8 +1,7 @@
 from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
-from llama_index.core import ChatPromptTemplate
 
-from app.core.database import get_knowledge_vector_store
 from app.models.jobMatch import JobMatchAnalysis
 from app.rag.retriever import retrieve_relevant_resumes
 
@@ -24,7 +23,7 @@ async def match_job_to_user(user_id:str, job_description:str, job_title:str):
     )
 
     context_text = "\n\n".join([
-        f"Source: {doc.metadata.get("document_type", "unknown")} - {doc.metadata.get("title", "no title")}\n{doc.page_content}"
+        f"Source: {doc.metadata.get('document_type', 'unknown')} - {doc.metadata.get('title', 'no title')}\n{doc.page_content}"
         for doc in context_docs
     ])
 
@@ -53,15 +52,16 @@ async def match_job_to_user(user_id:str, job_description:str, job_title:str):
         "context_text": context_text or "No relevant experience found in the candidate's data.",
         "format_instructions": parser.get_format_instructions()
     })
+    parsed_analysis = parser.parse(response.content)
     return {
-        "analysis": response.content,
+        "analysis": parsed_analysis,
         "sources":[
             {
                 "type": doc.metadata.get("document_type", "unknown"),
                 "title": doc.metadata.get("title", "no title"), 
             } for doc in context_docs
         ],  
-        "Sources_used": len(context_docs)
+        "sources_used": len(context_docs)
     }                            
                                                
      

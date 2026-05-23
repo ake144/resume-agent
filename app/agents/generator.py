@@ -1,5 +1,5 @@
 from langchain_groq import ChatGroq
-from llama_index.core import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 
 from app.agents.matcher import match_job_to_user
 
@@ -18,7 +18,7 @@ async def generate_application_package(user_id:str, job_description:str, job_tit
     match_result = await match_job_to_user(user_id, job_description, job_title)
     analysis = match_result["analysis"]
 
-    prompt = ChatPromptTemplate.from_tempate(
+    prompt = ChatPromptTemplate.from_template(
         """
         You are an expert career agent that generates tailored {application_type} for job applications based on a detailed analysis of the candidate's fit for the job.
 
@@ -45,9 +45,10 @@ async def generate_application_package(user_id:str, job_description:str, job_tit
         """)
     chain = prompt | llm
 
-    result = await chain.ainovoke({
+    result = await chain.ainvoke({
         "application_type": application_type.replace("_", " "),
         "job_title": job_title,
+        "job_description": job_description,
         "analysis": str(analysis)
     })
 
@@ -55,5 +56,5 @@ async def generate_application_package(user_id:str, job_description:str, job_tit
         "application_package": application_type,
         "content": result.content,
         "match_score": analysis.match_score,
-        "source_used": match_result["sources_count"]
+        "source_used": match_result["sources_used"]
     }
