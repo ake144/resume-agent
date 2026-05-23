@@ -2,6 +2,7 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain_groq import ChatGroq
 from llama_index.core import ChatPromptTemplate
 
+from app.core.database import get_knowledge_vector_store
 from app.models.jobMatch import JobMatchAnalysis
 from app.rag.retriever import retrieve_relevant_resumes
 
@@ -15,7 +16,7 @@ llm = ChatGroq(
 parser = PydanticOutputParser(pydantic_object=JobMatchAnalysis)
     
 async def match_job_to_user(user_id:str, job_description:str, job_title:str):
-     
+    
     context_docs = await retrieve_relevant_resumes(
         query=job_description,
         user_id=user_id,
