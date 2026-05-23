@@ -2,6 +2,7 @@ from langgraph.graph import END, StateGraph
 
 from app.agents.generator import generate_application_package
 from app.agents.matcher import match_job_to_user
+from app.core.memory import add_to_memory
 from app.models.workflow import ApplicationState
 
 
@@ -11,6 +12,9 @@ async def match_nodes(state:ApplicationState):
         state['job_description'],
         state['job_title']
     )
+
+    await add_to_memory(state['user_id'], f"Analyzed job: {state['job_title']}", role="assistant")
+    
     return {"match_analysis": analysis}
 
 
