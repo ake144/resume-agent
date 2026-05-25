@@ -8,8 +8,9 @@ from app.core.config import settings
 
 def configure_logging() -> None:
     """Configure application-wide logging."""
-    log_level = logging.INFO if settings.environment == "production" else logging.DEBUG
-    log_file = Path(__file__).resolve().parents[2] / "logs" / "app.log"
+    log_level_name = settings.log_level.upper()
+    log_level = getattr(logging, log_level_name, logging.INFO)
+    log_file = Path(settings.log_dir).expanduser().resolve() / "app.log"
     log_file.parent.mkdir(parents=True, exist_ok=True)
 
     logging_config = {
@@ -43,16 +44,36 @@ def configure_logging() -> None:
         },
         "loggers": {
             "": {  # root logger
-                "level": log_level,
+                "level": logging.INFO,
                 "handlers": ["console", "file"]
+            },
+            "app": {
+                "level": log_level,
+                "handlers": ["console", "file"],
+                "propagate": False
             },
             "uvicorn": {
                 "level": logging.INFO,
                 "handlers": ["console", "file"],
                 "propagate": False
             },
-            "uvicorn.access": {
+            "uvicorn.error": {
                 "level": logging.INFO,
+                "handlers": ["console", "file"],
+                "propagate": False
+            },
+            "uvicorn.access": {
+                "level": logging.WARNING,
+                "handlers": ["console"],
+                "propagate": False
+            },
+            "watchfiles": {
+                "level": logging.WARNING,
+                "handlers": ["console"],
+                "propagate": False
+            },
+            "watchfiles.main": {
+                "level": logging.WARNING,
                 "handlers": ["console"],
                 "propagate": False
             }
