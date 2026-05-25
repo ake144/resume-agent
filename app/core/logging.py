@@ -1,12 +1,16 @@
 """Logging configuration for the application."""
 import logging
 import logging.config
+from pathlib import Path
+
 from app.core.config import settings
 
 
 def configure_logging() -> None:
     """Configure application-wide logging."""
     log_level = logging.INFO if settings.environment == "production" else logging.DEBUG
+    log_file = Path(__file__).resolve().parents[2] / "logs" / "app.log"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
 
     logging_config = {
         "version": 1,
@@ -32,7 +36,7 @@ def configure_logging() -> None:
                 "class": "logging.handlers.RotatingFileHandler",
                 "level": log_level,
                 "formatter": "detailed",
-                "filename": "logs/app.log",
+                "filename": str(log_file),
                 "maxBytes": 10485760,  # 10MB
                 "backupCount": 5
             }
