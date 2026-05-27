@@ -2,6 +2,7 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 
+from app.core.config import settings
 from app.models.jobMatch import JobMatchAnalysis
 from app.rag.retriever import retrieve_relevant_resumes
 
@@ -19,7 +20,8 @@ async def match_job_to_user(user_id:str, job_description:str, job_title:str):
     context_docs = await retrieve_relevant_resumes(
         query=job_description,
         user_id=user_id,
-        top_k=12
+        top_k=settings.retrieval_top_k,
+        include_jobs=settings.retrieval_include_jobs,
     )
 
     context_text = "\n\n".join([

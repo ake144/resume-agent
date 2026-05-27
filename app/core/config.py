@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_dir: str = str(Path.home() / ".cache" / "resume-agent" / "logs")
 
+    # Retrieval / DB compute controls
+    retrieval_top_k: int = 8
+    retrieval_include_jobs: bool = True
+    retrieval_jobs_fraction: float = 0.25
+    retrieval_cache_ttl_seconds: int = 300
+
     class Config:
         """Pydantic config."""
         env_file = ".env"

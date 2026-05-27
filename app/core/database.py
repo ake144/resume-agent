@@ -1,7 +1,8 @@
 from langchain_postgres import PGVector
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import os
+from functools import lru_cache
+
 from app.core.config import settings
 from app.core.embeddings import get_embeddings
 
@@ -12,6 +13,7 @@ engine = create_engine(databaseUrl)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+@lru_cache(maxsize=8)
 def get_knowledge_vector_store(collection_name: str = "user_knowledge_base"):
     """Permanent user profile RAG"""
     return PGVector(
@@ -21,6 +23,8 @@ def get_knowledge_vector_store(collection_name: str = "user_knowledge_base"):
         use_jsonb=True,
     )
 
+
+@lru_cache(maxsize=8)
 def get_temp_vector_store(collection_name: str = "temporary_documents"):
     """Temporary jobs & generations"""
     return PGVector(

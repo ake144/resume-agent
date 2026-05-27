@@ -10,12 +10,20 @@ llm = ChatGroq(
     max_tokens=1500
 )
 
-async def generate_application_package(user_id:str, job_description:str, job_title:str, application_type: str="cover_letter"):
+async def generate_application_package(
+    user_id: str,
+    job_description: str,
+    job_title: str,
+    application_type: str = "cover_letter",
+    match_result: dict | None = None,
+):
     """
     application_type: cover_letter, upwork_proposal, linkedin_message
     """
 
-    match_result = await match_job_to_user(user_id, job_description, job_title)
+    if match_result is None:
+        match_result = await match_job_to_user(user_id, job_description, job_title)
+
     analysis = match_result["analysis"]
 
     prompt = ChatPromptTemplate.from_template(

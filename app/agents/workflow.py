@@ -20,12 +20,12 @@ async def match_nodes(state:ApplicationState):
 
 
 async def generate_node(state:ApplicationState):
-
     application_package = await generate_application_package(
         state['user_id'],
         state['job_description'],
         state['job_title'],
-        "cover_letter"
+        "cover_letter",
+        match_result=state["match_analysis"],
     )
     return {"application": application_package["content"], "final_output": application_package}
 async def critic_node(state: ApplicationState):

@@ -38,7 +38,7 @@ class ApplicationService(BaseService):
                 user_id=request.user_id,
                 job_description=request.job_description,
                 job_title=request.job_title,
-                type=request.application_type.value
+                application_type=request.application_type.value,
             )
             self.log_info("Application generated successfully", user_id=request.user_id)
             return ApplicationGenerationResponse(
