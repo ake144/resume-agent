@@ -16,7 +16,8 @@ text_splitter = RecursiveCharacterTextSplitter(
 
 async def ingest_resume(user_id: str, file: UploadFile = None, text: str = None, title: str = "My Resume"):
     try:
-        if file:
+        print(f"Starting resume ingestion for user_id: {user_id} | title: {title}")
+        if file is not None:
             content = await file.read()
             if file.filename.lower().endswith(".pdf"):
                 pdf_reader = PdfReader(io.BytesIO(content))
@@ -26,7 +27,10 @@ async def ingest_resume(user_id: str, file: UploadFile = None, text: str = None,
         else:
             resume_text = text
 
-        if not resume_text or len(resume_text.strip()) < 50:
+        print(f"Resume text length: {len(resume_text) if resume_text else 'No text'}")
+
+        if not resume_text or len(resume_text.strip()) < 20:
+            print(f"resume_text: {resume_text}")
             raise ValueError("Resume content is too short or empty")
 
         # Split into chunks
