@@ -1,23 +1,33 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import text
-from app.core.database import engine  # your SQLAlchemy engine
+from app.core.database import engine, TEMP_COLLECTION_NAME  # your SQLAlchemy engine
 import logging
 
 logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
 
-async def cleanup_expired_documents():
-    """Delete old temporary documents"""
+def cleanup_expired_documents():
+    """Delete expired temporary-document embeddings from the PGVector store.
+
+    Runs as a plain sync function (not async): APScheduler's AsyncIOExecutor
+    automatically threadpools sync job callables, so this never blocks the
+    event loop despite using the app's sync SQLAlchemy engine directly.
+    """
     try:
-        async with engine.begin() as conn:
-            result = await conn.execute(
+        with engine.begin() as conn:
+            result = conn.execute(
                 text("""
-                    DELETE FROM temporary_documents 
-                    WHERE expires_at < NOW()
-                    RETURNING id;
-                """)
+                    DELETE FROM langchain_pg_embedding e
+                    USING langchain_pg_collection c
+                    WHERE e.collection_id = c.uuid
+                      AND c.name = :collection_name
+                      AND (e.cmetadata ->> 'expires_at') IS NOT NULL
+                      AND (e.cmetadata ->> 'expires_at')::timestamp < (NOW() AT TIME ZONE 'UTC')
+                    RETURNING e.id;
+                """),
+                {"collection_name": TEMP_COLLECTION_NAME},
             )
             deleted = result.rowcount
             if deleted > 0:

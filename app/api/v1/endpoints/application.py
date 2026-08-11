@@ -1,5 +1,9 @@
 """Application generation endpoints."""
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
 from app.schemas.application import (
     ApplicationGenerationRequest,
     ApplicationGenerationResponse,
@@ -7,7 +11,9 @@ from app.schemas.application import (
 )
 from app.schemas.base import APIResponse
 from app.services.application_service import ApplicationService
-from app.api.dependencies import get_application_service
+from app.api.dependencies import get_application_service, get_current_user
+from app.core.database import get_db
+from app.db.models import User
 import logging
 
 router = APIRouter(tags=["applications"])
@@ -22,6 +28,8 @@ logger = logging.getLogger(__name__)
 )
 async def generate_application(
     request: ApplicationGenerationRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
     service: ApplicationService = Depends(get_application_service)
 ):
     """
@@ -29,6 +37,8 @@ async def generate_application(
 
     Args:
         request: Application generation request
+        current_user: Authenticated user (derived from the API key)
+        db: Request-scoped database session
         service: Application service instance
 
     Returns:
@@ -38,7 +48,7 @@ async def generate_application(
         HTTPException: If generation fails
     """
     try:
-        result = await service.generate_application(request)
+        result = await service.generate_application(request, user_id=str(current_user.id), db=db)
         return APIResponse(
             status="success",
             message=f"{request.application_type.value.replace('_', ' ').title()} generated successfully",
@@ -60,6 +70,8 @@ async def generate_application(
 )
 async def execute_workflow(
     request: WorkflowRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
     service: ApplicationService = Depends(get_application_service)
 ):
     """
@@ -67,6 +79,8 @@ async def execute_workflow(
 
     Args:
         request: Workflow request with job details
+        current_user: Authenticated user (derived from the API key)
+        db: Request-scoped database session
         service: Application service instance
 
     Returns:
@@ -76,7 +90,7 @@ async def execute_workflow(
         HTTPException: If workflow fails
     """
     try:
-        result = await service.execute_workflow(request)
+        result = await service.execute_workflow(request, user_id=str(current_user.id), db=db)
         return APIResponse(
             status="success",
             message="Workflow executed successfully",

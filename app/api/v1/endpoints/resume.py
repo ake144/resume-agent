@@ -6,9 +6,12 @@ NOTE: This endpoint is deprecated. Use the new endpoints instead:
 - POST /api/v1/jobs/match - for matching jobs
 - POST /api/v1/applications/workflow - for full workflow
 """
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 from fastapi import HTTPException, status
-from app.api.dependencies import get_resume_service
+from app.api.dependencies import get_resume_service, get_current_user
+from app.db.models import User
 from app.schemas.base import APIResponse
 from app.schemas.resume import ResumeIngestionRequest
 from app.services.resume import ResumeSerives
@@ -37,6 +40,7 @@ async def get_resume_status():
 )
 async def post_ingest_resume(
     request: ResumeIngestionRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
     service: ResumeSerives = Depends(get_resume_service),
 ):
     """Ingest resume either from uploaded file or raw text.
@@ -50,7 +54,7 @@ async def post_ingest_resume(
         )
 
     try:
-        result = await service.resume_ingest(request)
+        result = await service.resume_ingest(request, user_id=str(current_user.id))
         return APIResponse(status="success", message="Resume ingested", data=result)
     except Exception:
         logger.exception("Resume ingestion failed")

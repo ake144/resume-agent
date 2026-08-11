@@ -64,5 +64,6 @@ async def generate_application_package(
         "application_package": application_type,
         "content": result.content,
         "match_score": analysis.match_score,
-        "source_used": match_result["sources_used"]
+        "sources_used": match_result["sources_used"],
+        "match_analysis": analysis.model_dump(),
     }

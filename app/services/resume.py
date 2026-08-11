@@ -9,21 +9,23 @@ class ResumeSerives(BaseService):
 
     async def resume_ingest(
         self,
-        request: ResumeIngestionRequest
+        request: ResumeIngestionRequest,
+        user_id: str,
     ) -> Dict[str, Any]:
         """
         Ingest a resume either from uploaded file or raw text.
 
         Args:
             request: Resume ingestion request containing file or text
-    
+            user_id: Authenticated user's id
+
         Returns:
             Ingestion result
         """
         try:
             self.log_info(
                 "Ingesting resume",
-                user_id=request.user_id,
+                user_id=user_id,
                 title=request.title
             )
 
@@ -32,21 +34,21 @@ class ResumeSerives(BaseService):
 
             # Pass explicit fields from the request into the ingestor
             result = await ingest_resume(
-                user_id=request.user_id,
+                user_id=user_id,
                 file=getattr(request, "file", None),
                 text=getattr(request, "text", None),
                 title=getattr(request, "title", "My Resume"),
             )
             self.log_info(
                 "Resume ingested successfully",
-                user_id=request.user_id,
+                user_id=user_id,
                 title=request.title
             )
             return result
         except Exception as e:
             self.log_error(
                 "Error ingesting resume",
-                user_id=request.user_id,
+                user_id=user_id,
                 title=request.title,
                 error=str(e)
             )

@@ -8,5 +8,5 @@ class ApplicationState(TypedDict):
     application:str
     match_analysis: dict
     final_output: dict
-    critiqe: str
+    critique: str
     

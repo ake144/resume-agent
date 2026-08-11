@@ -5,17 +5,19 @@ from typing import Optional, List
 
 class JobIngestionRequest(BaseModel):
     """Request schema for job ingestion."""
-    user_id: str = Field(..., description="User ID")
     job_text: str = Field(..., description="Job description text")
     title: str = Field(..., description="Job title")
+    company: Optional[str] = Field(None, description="Company name, if known")
+    location: Optional[str] = Field(None, description="Job location, if known")
     source_url: Optional[HttpUrl] = Field(None, description="Source URL of the job posting")
 
     class Config:
         json_schema_extra = {
             "example": {
-                "user_id": "user_123",
                 "job_text": "We are looking for a senior Python developer...",
                 "title": "Senior Python Developer",
+                "company": "Example Corp",
+                "location": "Remote",
                 "source_url": "https://example.com/jobs/123"
             }
         }
@@ -23,14 +25,12 @@ class JobIngestionRequest(BaseModel):
 
 class JobMatchRequest(BaseModel):
     """Request schema for job matching."""
-    user_id: str = Field(..., description="User ID")
     job_text: str = Field(..., description="Job description text")
     job_title: str = Field(..., description="Job title")
 
     class Config:
         json_schema_extra = {
             "example": {
-                "user_id": "user_123",
                 "job_text": "We are looking for a senior Python developer...",
                 "job_title": "Senior Python Developer"
             }

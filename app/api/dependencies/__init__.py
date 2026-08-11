@@ -4,12 +4,22 @@ from fastapi import Depends
 from app.services.job_service import JobService
 from app.services.application_service import ApplicationService
 from app.services.resume import ResumeSerives
+from app.services.profile_service import ProfileService
+from app.api.dependencies.auth import get_current_user
 
+__all__ = [
+    "get_job_service",
+    "get_application_service",
+    "get_resume_service",
+    "get_profile_service",
+    "get_current_user",
+]
 
 # Service instances (can be replaced with full DI container in larger projects)
 _job_service: Optional[JobService] = None
 _application_service: Optional[ApplicationService] = None
 _resume_service: Optional[ResumeSerives] = None
+_profile_service: Optional[ProfileService] = None
 
 
 def get_job_service() -> JobService:
@@ -34,3 +44,11 @@ def get_resume_service() -> ResumeSerives:
     if _resume_service is None:
         _resume_service = ResumeSerives()
     return _resume_service
+
+
+def get_profile_service() -> ProfileService:
+    """Get profile service instance."""
+    global _profile_service
+    if _profile_service is None:
+        _profile_service = ProfileService()
+    return _profile_service

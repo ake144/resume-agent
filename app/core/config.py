@@ -20,7 +20,11 @@ class Settings(BaseSettings):
 
     # API Keys
     groq_api_key: str
-    
+
+    # Auth: server-side pepper mixed into the HMAC used to hash issued API keys.
+    # See app/core/security.py for why HMAC-SHA256 (not bcrypt) is used here.
+    api_key_pepper: str
+
     # Database
     database_url: str
 
