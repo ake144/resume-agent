@@ -8,7 +8,8 @@ from app.rag.retriever import retrieve_relevant_resumes
 
 
 llm = ChatGroq(
-    model="llama-3.3-70b-versatile",   # Strong reasoning + free tier
+    # model="llama-3.3-70b-versatile",   # Strong reasoning + free tier
+    model="openai/gpt-oss-120b",
     temperature=0.3,
     max_tokens=1200
 )

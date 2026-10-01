@@ -30,7 +30,8 @@ async def generate_node(state:ApplicationState):
     return {"application": application_package["content"], "final_output": application_package}
 async def critic_node(state: ApplicationState):
     llm = ChatGroq(
-        model="llama-3.3-70b-versatile",
+        # model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         temperature=0.3,
         max_tokens=800
     )

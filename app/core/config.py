@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     database_url: str
 
     # CORS
-    cors_origins: list = ["http://localhost:3000", "http://localhost:5173", "http://localhost:8000"]
+    cors_origins: list = ["http://localhost:3001", "http://localhost:5173", "http://localhost:8000"]
     cors_methods: list = ["*"]
     cors_headers: list = ["*"]
     cors_credentials: bool = False

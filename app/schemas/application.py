@@ -1,6 +1,8 @@
 """Schemas for application generation requests and responses."""
+from datetime import datetime
 from pydantic import BaseModel, Field
 from typing import Optional
+from uuid import UUID
 from enum import Enum
 
 
@@ -9,6 +11,9 @@ class ApplicationType(str, Enum):
     COVER_LETTER = "cover_letter"
     RESUME_TAILORING = "resume_tailoring"
     INTERVIEW_PREP = "interview_prep"
+    LINKEDIN_MESSAGE = "linkedin_message"
+    UPWORK_PROPOSAL = "upwork_proposal"
+    COLD_PITCH = "cold_pitch"
 
 
 class ApplicationStatus(str, Enum):
@@ -29,6 +34,9 @@ class ApplicationGenerationRequest(BaseModel):
     application_type: ApplicationType = Field(
         default=ApplicationType.COVER_LETTER,
         description="Type of application to generate"
+    )
+    job_posting_id: Optional[UUID] = Field(
+        default=None, description="Optional JobPosting to link this application to"
     )
 
     class Config:
@@ -69,6 +77,9 @@ class WorkflowRequest(BaseModel):
     """Request schema for full application workflow."""
     job_description: str = Field(..., description="Job description")
     job_title: str = Field(..., description="Job title")
+    job_posting_id: Optional[UUID] = Field(
+        default=None, description="Optional JobPosting to link this application to"
+    )
 
     class Config:
         json_schema_extra = {
@@ -77,3 +88,35 @@ class WorkflowRequest(BaseModel):
                 "job_title": "Senior Python Developer"
             }
         }
+
+
+class ApplicationSummaryResponse(BaseModel):
+    """Summary schema for a single item in the applications list."""
+    id: UUID
+    job_title: str
+    company: Optional[str] = None
+    application_type: ApplicationType
+    status: ApplicationStatus
+    match_score: Optional[int] = None
+    job_posting_id: Optional[UUID] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ApplicationDetailResponse(ApplicationSummaryResponse):
+    """Full detail schema for a single application."""
+    generated_content: str
+    sources_used: Optional[int] = None
+    match_analysis: Optional[dict] = None
+    submitted_at: Optional[datetime] = None
+
+
+class ApplicationListResponse(BaseModel):
+    """Paginated list of applications, mirroring the shape the frontend
+    already expects (content/totalItems/totalPages) to minimize its
+    rewrite surface when swapping off the old backend."""
+    content: list[ApplicationSummaryResponse]
+    totalItems: int
+    totalPages: int

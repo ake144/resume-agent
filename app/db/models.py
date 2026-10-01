@@ -17,6 +17,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -108,6 +109,26 @@ class SkillEntry(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     category: Mapped[str | None] = mapped_column(String(50), nullable=True)
     proficiency: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+
+class ResumeFile(Base):
+    """Most-recent uploaded PDF resume only - overwritten on re-upload,
+    not versioned. Only extracted text survives resume ingestion
+    otherwise; this exists so auto-apply has an actual file to attach
+    to ATS application forms.
+    """
+
+    __tablename__ = "resume_files"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
 
 
 class JobPosting(Base):
