@@ -13,10 +13,12 @@ from app.schemas.job import (
     MatchResultDetailResponse,
     MatchResultSummaryResponse,
     JobPostingResponse,
+    JobSourceCreate,
+    JobSourceResponse,
 )
 from app.ingestion.job_ingestor import ingest_job
 from app.agents.matcher import match_job_to_user
-from app.db.models import CareerPreference, JobPosting, MatchResult, TargetRole
+from app.db.models import CareerPreference, JobPosting, JobSource, MatchResult, TargetRole
 from fastapi import HTTPException, status
 
 
@@ -46,6 +48,11 @@ class JobService(BaseService):
                 user_id=user_id,
                 title=request.title
             )
+            source_id = request.source_id
+            if source_id is not None:
+                source = db.get(JobSource, source_id)
+                if source is None or source.user_id != uuid.UUID(user_id) or not source.enabled:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job source not found")
             result = await ingest_job(
                 db=db,
                 user_id=user_id,
@@ -54,6 +61,8 @@ class JobService(BaseService):
                 source_url=str(request.source_url) if request.source_url else None,
                 company=request.company,
                 location=request.location,
+                source_type=request.source_type,
+                source_id=source_id,
             )
             self.log_info("Job ingested successfully", user_id=user_id)
             return result
@@ -191,6 +200,8 @@ class JobService(BaseService):
                     description=posting.description,
                     source_url=posting.source_url,
                     source_type=posting.source_type,
+                    source_id=posting.source_id,
+                    discovery_status=posting.discovery_status,
                     discovered_at=posting.discovered_at,
                     expires_at=posting.expires_at,
                     is_expired=is_expired,
@@ -198,3 +209,25 @@ class JobService(BaseService):
                 )
             )
         return results
+
+    def list_job_sources(self, db: Session, user_id: str) -> list[JobSourceResponse]:
+        rows = (
+            db.query(JobSource)
+            .filter(JobSource.user_id == uuid.UUID(user_id))
+            .order_by(JobSource.provider.asc(), JobSource.source_key.asc())
+            .all()
+        )
+        return [JobSourceResponse.model_validate(row) for row in rows]
+
+    def create_job_source(
+        self, db: Session, user_id: str, data: JobSourceCreate
+    ) -> JobSourceResponse:
+        source = JobSource(user_id=uuid.UUID(user_id), **data.model_dump())
+        db.add(source)
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Job source already exists")
+        db.refresh(source)
+        return JobSourceResponse.model_validate(source)

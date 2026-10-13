@@ -209,6 +209,22 @@ class ResumeVersion(Base, TimestampMixin):
     parser_status: Mapped[str] = mapped_column(String(30), nullable=False, default="parsed")
 
 
+class JobSource(Base, TimestampMixin):
+    """A permitted source configuration for future discovery workers."""
+
+    __tablename__ = "job_sources"
+    __table_args__ = (UniqueConstraint("user_id", "provider", "source_key", name="uq_job_sources_user_provider_key"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    source_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+
 class JobPosting(Base):
     """Structured job data. Complements, doesn't replace, the temp
     PGVector store: job ingestion still chunks+embeds the description for
@@ -233,6 +249,10 @@ class JobPosting(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_type: Mapped[str] = mapped_column(String(50), nullable=False, default="manual_paste")
+    source_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("job_sources.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    discovery_status: Mapped[str] = mapped_column(String(30), nullable=False, default="discovered")
     external_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
     discovered_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

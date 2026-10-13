@@ -4,10 +4,18 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.schemas.job import JobIngestionRequest, JobMatchRequest, JobMatchResponse
+from app.schemas.job import (
+    JobIngestionRequest,
+    JobMatchRequest,
+    JobMatchResponse,
+    JobSourceCreate,
+    LocalSourcePresetResponse,
+)
 from uuid import UUID
 from app.schemas.base import APIResponse
 from app.services.job_service import JobService
+from app.services.discovery_service import DiscoveryService
+from app.discovery.local_sources import list_source_presets
 from app.api.dependencies import get_job_service, get_current_user
 from app.core.database import get_db
 from app.db.models import User
@@ -15,6 +23,15 @@ import logging
 
 router = APIRouter(tags=["jobs"])
 logger = logging.getLogger(__name__)
+
+
+@router.get(
+    "/local-sources",
+    response_model=list[LocalSourcePresetResponse],
+    summary="List local and international job source presets",
+)
+def list_local_sources():
+    return list_source_presets()
 
 
 @router.post(
@@ -128,6 +145,51 @@ def list_postings(
 ):
     result = service.list_job_postings(db, str(current_user.id), include_expired)
     return APIResponse(status="success", message="Job postings retrieved", data=result)
+
+
+@router.get(
+    "/sources",
+    response_model=APIResponse,
+    summary="List configured job sources",
+)
+def list_sources(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    service: JobService = Depends(get_job_service),
+):
+    result = service.list_job_sources(db, str(current_user.id))
+    return APIResponse(status="success", message="Job sources retrieved", data=result)
+
+
+@router.post(
+    "/sources",
+    response_model=APIResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Configure a job source",
+)
+def create_source(
+    request: JobSourceCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    service: JobService = Depends(get_job_service),
+):
+    result = service.create_job_source(db, str(current_user.id), request)
+    return APIResponse(status="success", message="Job source configured", data=result)
+
+
+@router.post(
+    "/sources/{source_id}/discover",
+    response_model=APIResponse,
+    summary="Discover jobs from a configured source",
+)
+async def discover_source(
+    source_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    service: DiscoveryService = Depends(DiscoveryService),
+):
+    result = await service.discover_source(db, str(current_user.id), source_id)
+    return APIResponse(status="success", message="Job discovery completed", data=result)
 
 
 @router.get(

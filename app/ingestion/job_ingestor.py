@@ -29,6 +29,8 @@ async def ingest_job(
         source_url: str = None,
         company: str = None,
         location: str = None,
+        source_type: str = "manual_paste",
+        source_id: uuid.UUID | None = None,
 ):
     existing = None
     if source_url:
@@ -55,6 +57,9 @@ async def ingest_job(
         location=location,
         description=job_text,
         source_url=source_url,
+        source_type=source_type,
+        source_id=source_id,
+        discovery_status="discovered",
         expires_at=datetime.utcnow() + timedelta(days=30),
     )
     # Sync SQLAlchemy call from an async function: threadpooled the same way

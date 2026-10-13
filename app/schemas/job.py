@@ -12,6 +12,8 @@ class JobIngestionRequest(BaseModel):
     company: Optional[str] = Field(None, description="Company name, if known")
     location: Optional[str] = Field(None, description="Job location, if known")
     source_url: Optional[HttpUrl] = Field(None, description="Source URL of the job posting")
+    source_type: str = Field("manual_paste", description="Permitted provider or manual source")
+    source_id: Optional[UUID] = Field(None, description="Configured source record")
 
     class Config:
         json_schema_extra = {
@@ -93,10 +95,42 @@ class JobPostingResponse(BaseModel):
     description: str
     source_url: Optional[str] = None
     source_type: str
+    source_id: Optional[UUID] = None
+    discovery_status: str
     discovered_at: datetime
     expires_at: Optional[datetime] = None
     is_expired: bool
     latest_match_score: Optional[int] = None
 
+
+class JobSourceCreate(BaseModel):
+    provider: str
+    source_key: str
+    enabled: bool = True
+    config: Optional[dict] = None
+
+
+class JobSourceResponse(JobSourceCreate):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
     class Config:
         from_attributes = True
+
+
+class DiscoveryResponse(BaseModel):
+    source_id: UUID
+    provider: str
+    jobs_seen: int
+    created: int
+    updated: int
+
+
+class LocalSourcePresetResponse(BaseModel):
+    provider: str
+    label: str
+    region: str
+    homepage: str
+    mode: str
+    notes: str
