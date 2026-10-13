@@ -35,7 +35,8 @@ def test_career_summary_reports_owned_readiness_and_gaps(client, db_session, aut
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["profile_readiness"]["score"] == 50
+    assert payload["profile_readiness"]["score"] == 40
+    assert payload["profile_readiness"]["verified_evidence"] is False
     assert payload["active_applications"] == 1
     assert payload["average_match_score"] == 84
     assert payload["skill_gaps"] == ["Playwright"]

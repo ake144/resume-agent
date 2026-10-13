@@ -18,6 +18,7 @@ class CareerProfileReadiness(BaseModel):
     summary: bool
     skills: bool
     work_history: bool
+    verified_evidence: bool
 
 
 class CareerSummaryResponse(BaseModel):

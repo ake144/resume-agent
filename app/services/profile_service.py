@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.db.models import EducationEntry, SkillEntry, UserProfile, WorkHistoryEntry
+from app.db.models import CareerEvidence, CareerPreference, EducationEntry, ResumeVersion, SkillEntry, TargetRole, UserProfile, WorkHistoryEntry
 from app.schemas.profile import (
     EducationEntryCreate,
     EducationEntryUpdate,
@@ -17,9 +17,14 @@ from app.schemas.profile import (
     UserProfileUpdate,
     WorkHistoryEntryCreate,
     WorkHistoryEntryUpdate,
+    CareerEvidenceCreate,
+    CareerEvidenceUpdate,
+    CareerPreferenceUpdate,
+    TargetRoleCreate,
+    TargetRoleUpdate,
 )
 
-ModelT = TypeVar("ModelT", WorkHistoryEntry, EducationEntry, SkillEntry)
+ModelT = TypeVar("ModelT", WorkHistoryEntry, EducationEntry, SkillEntry, CareerEvidence, TargetRole)
 
 
 def _not_found(resource: str) -> HTTPException:
@@ -165,4 +170,115 @@ class ProfileService:
     def delete_skill(self, db: Session, user_id: uuid.UUID, entry_id: uuid.UUID) -> None:
         entry = self._get_owned(db, SkillEntry, entry_id, user_id, "Skill")
         db.delete(entry)
+        db.commit()
+
+    # --- Career evidence ---
+
+    def list_evidence(self, db: Session, user_id: uuid.UUID) -> List[CareerEvidence]:
+        return (
+            db.query(CareerEvidence)
+            .filter(CareerEvidence.user_id == user_id)
+            .order_by(CareerEvidence.created_at.desc())
+            .all()
+        )
+
+    def create_evidence(
+        self, db: Session, user_id: uuid.UUID, data: CareerEvidenceCreate
+    ) -> CareerEvidence:
+        values = data.model_dump()
+        source_resume_version_id = values.get("source_resume_version_id")
+        if source_resume_version_id is not None:
+            resume_version = db.get(ResumeVersion, source_resume_version_id)
+            if resume_version is None or resume_version.user_id != user_id:
+                raise _not_found("Resume version")
+        evidence = CareerEvidence(user_id=user_id, **values)
+        db.add(evidence)
+        db.commit()
+        db.refresh(evidence)
+        return evidence
+
+    def update_evidence(
+        self,
+        db: Session,
+        user_id: uuid.UUID,
+        entry_id: uuid.UUID,
+        update: CareerEvidenceUpdate,
+    ) -> CareerEvidence:
+        evidence = self._get_owned(db, CareerEvidence, entry_id, user_id, "Career evidence")
+        values = update.model_dump(exclude_unset=True)
+        source_resume_version_id = values.get("source_resume_version_id")
+        if source_resume_version_id is not None:
+            resume_version = db.get(ResumeVersion, source_resume_version_id)
+            if resume_version is None or resume_version.user_id != user_id:
+                raise _not_found("Resume version")
+        for field, value in values.items():
+            setattr(evidence, field, value)
+        db.commit()
+        db.refresh(evidence)
+        return evidence
+
+    def delete_evidence(self, db: Session, user_id: uuid.UUID, entry_id: uuid.UUID) -> None:
+        evidence = self._get_owned(db, CareerEvidence, entry_id, user_id, "Career evidence")
+        db.delete(evidence)
+        db.commit()
+
+    # --- Preferences and target roles ---
+
+    def get_preferences(self, db: Session, user_id: uuid.UUID) -> CareerPreference:
+        preferences = db.get(CareerPreference, user_id)
+        if preferences is None:
+            preferences = CareerPreference(user_id=user_id)
+            db.add(preferences)
+            db.commit()
+            db.refresh(preferences)
+        return preferences
+
+    def update_preferences(
+        self, db: Session, user_id: uuid.UUID, update: CareerPreferenceUpdate
+    ) -> CareerPreference:
+        preferences = self.get_preferences(db, user_id)
+        for field, value in update.model_dump(exclude_unset=True).items():
+            setattr(preferences, field, value)
+        db.commit()
+        db.refresh(preferences)
+        return preferences
+
+    def list_target_roles(self, db: Session, user_id: uuid.UUID) -> List[TargetRole]:
+        return (
+            db.query(TargetRole)
+            .filter(TargetRole.user_id == user_id)
+            .order_by(TargetRole.priority.asc(), TargetRole.created_at.asc())
+            .all()
+        )
+
+    def create_target_role(
+        self, db: Session, user_id: uuid.UUID, data: TargetRoleCreate
+    ) -> TargetRole:
+        role = TargetRole(user_id=user_id, **data.model_dump())
+        db.add(role)
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Target role already exists")
+        db.refresh(role)
+        return role
+
+    def update_target_role(
+        self, db: Session, user_id: uuid.UUID, entry_id: uuid.UUID, update: TargetRoleUpdate
+    ) -> TargetRole:
+        role = self._get_owned(db, TargetRole, entry_id, user_id, "Target role")
+        for field, value in update.model_dump(exclude_unset=True).items():
+            setattr(role, field, value)
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Target role already exists")
+        db.refresh(role)
+        return role
+
+    def delete_target_role(self, db: Session, user_id: uuid.UUID, entry_id: uuid.UUID) -> None:
+        role = self._get_owned(db, TargetRole, entry_id, user_id, "Target role")
+        db.delete(role)
         db.commit()

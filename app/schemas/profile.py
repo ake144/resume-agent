@@ -31,6 +31,45 @@ class UserProfileResponse(BaseModel):
         from_attributes = True
 
 
+class CareerPreferenceUpdate(BaseModel):
+    work_modes: Optional[list[str]] = None
+    employment_types: Optional[list[str]] = None
+    preferred_locations: Optional[list[str]] = None
+    minimum_salary: Optional[int] = None
+    salary_currency: Optional[str] = None
+    willing_to_relocate: Optional[bool] = None
+    visa_sponsorship_required: Optional[bool] = None
+
+
+class CareerPreferenceResponse(CareerPreferenceUpdate):
+    user_id: UUID
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TargetRoleCreate(BaseModel):
+    role_name: str
+    priority: int = 1
+
+
+class TargetRoleUpdate(BaseModel):
+    role_name: Optional[str] = None
+    priority: Optional[int] = None
+
+
+class TargetRoleResponse(BaseModel):
+    id: UUID
+    role_name: str
+    priority: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class WorkHistoryEntryCreate(BaseModel):
     company: str
     job_title: str
@@ -127,6 +166,39 @@ class ResumeVersionResponse(BaseModel):
     content_hash: str
     parser_status: str
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CareerEvidenceCreate(BaseModel):
+    evidence_type: str
+    title: str
+    description: str
+    source: str = "user_entered"
+    source_resume_version_id: Optional[UUID] = None
+    verified: bool = False
+
+
+class CareerEvidenceUpdate(BaseModel):
+    evidence_type: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    source: Optional[str] = None
+    source_resume_version_id: Optional[UUID] = None
+    verified: Optional[bool] = None
+
+
+class CareerEvidenceResponse(BaseModel):
+    id: UUID
+    evidence_type: str
+    title: str
+    description: str
+    source: str
+    source_resume_version_id: Optional[UUID] = None
+    verified: bool
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True

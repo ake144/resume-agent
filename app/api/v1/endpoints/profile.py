@@ -14,6 +14,14 @@ from app.schemas.profile import (
     EducationEntryCreate,
     EducationEntryResponse,
     EducationEntryUpdate,
+    CareerEvidenceCreate,
+    CareerEvidenceResponse,
+    CareerEvidenceUpdate,
+    CareerPreferenceResponse,
+    CareerPreferenceUpdate,
+    TargetRoleCreate,
+    TargetRoleResponse,
+    TargetRoleUpdate,
     SkillEntryCreate,
     SkillEntryResponse,
     SkillEntryUpdate,
@@ -144,3 +152,88 @@ def update_skill(
 @router.delete("/skills/{entry_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a skill")
 def delete_skill(entry_id: UUID, current_user: CurrentUser, db: DbSession, service: ProfileSvc):
     service.delete_skill(db, current_user.id, entry_id)
+
+
+# --- Career evidence ---
+
+@router.get("/evidence", response_model=List[CareerEvidenceResponse], summary="List career evidence")
+def list_evidence(current_user: CurrentUser, db: DbSession, service: ProfileSvc):
+    return service.list_evidence(db, current_user.id)
+
+
+@router.post(
+    "/evidence",
+    response_model=CareerEvidenceResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add career evidence",
+)
+def create_evidence(data: CareerEvidenceCreate, current_user: CurrentUser, db: DbSession, service: ProfileSvc):
+    return service.create_evidence(db, current_user.id, data)
+
+
+@router.put("/evidence/{entry_id}", response_model=CareerEvidenceResponse, summary="Update career evidence")
+def update_evidence(
+    entry_id: UUID,
+    update: CareerEvidenceUpdate,
+    current_user: CurrentUser,
+    db: DbSession,
+    service: ProfileSvc,
+):
+    return service.update_evidence(db, current_user.id, entry_id, update)
+
+
+@router.delete("/evidence/{entry_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete career evidence")
+def delete_evidence(entry_id: UUID, current_user: CurrentUser, db: DbSession, service: ProfileSvc):
+    service.delete_evidence(db, current_user.id, entry_id)
+
+
+# --- Career preferences and target roles ---
+
+@router.get("/preferences", response_model=CareerPreferenceResponse, summary="Get career preferences")
+def get_preferences(current_user: CurrentUser, db: DbSession, service: ProfileSvc):
+    return service.get_preferences(db, current_user.id)
+
+
+@router.put("/preferences", response_model=CareerPreferenceResponse, summary="Update career preferences")
+def update_preferences(
+    update: CareerPreferenceUpdate,
+    current_user: CurrentUser,
+    db: DbSession,
+    service: ProfileSvc,
+):
+    return service.update_preferences(db, current_user.id, update)
+
+
+@router.get("/target-roles", response_model=List[TargetRoleResponse], summary="List target roles")
+def list_target_roles(current_user: CurrentUser, db: DbSession, service: ProfileSvc):
+    return service.list_target_roles(db, current_user.id)
+
+
+@router.post(
+    "/target-roles",
+    response_model=TargetRoleResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a target role",
+)
+def create_target_role(data: TargetRoleCreate, current_user: CurrentUser, db: DbSession, service: ProfileSvc):
+    return service.create_target_role(db, current_user.id, data)
+
+
+@router.put("/target-roles/{entry_id}", response_model=TargetRoleResponse, summary="Update a target role")
+def update_target_role(
+    entry_id: UUID,
+    update: TargetRoleUpdate,
+    current_user: CurrentUser,
+    db: DbSession,
+    service: ProfileSvc,
+):
+    return service.update_target_role(db, current_user.id, entry_id, update)
+
+
+@router.delete(
+    "/target-roles/{entry_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a target role",
+)
+def delete_target_role(entry_id: UUID, current_user: CurrentUser, db: DbSession, service: ProfileSvc):
+    service.delete_target_role(db, current_user.id, entry_id)

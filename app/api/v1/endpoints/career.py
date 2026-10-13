@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
-from app.db.models import Application, SkillEntry, User, UserProfile, WorkHistoryEntry
+from app.db.models import Application, CareerEvidence, SkillEntry, User, UserProfile, WorkHistoryEntry
 from app.schemas.application import ApplicationStatus
 from app.schemas.career import (
     CareerAction,
@@ -38,6 +38,12 @@ def get_career_summary(current_user: CurrentUser, db: DbSession) -> CareerSummar
         .filter(WorkHistoryEntry.user_id == current_user.id)
         .all()
     )
+    verified_evidence = (
+        db.query(CareerEvidence)
+        .filter(CareerEvidence.user_id == current_user.id, CareerEvidence.verified.is_(True))
+        .count()
+        > 0
+    )
     applications = (
         db.query(Application)
         .filter(Application.user_id == current_user.id)
@@ -52,11 +58,13 @@ def get_career_summary(current_user: CurrentUser, db: DbSession) -> CareerSummar
     summary_complete = bool(profile and profile.summary)
     skills_complete = bool(skills)
     work_history_complete = bool(work_history)
+    evidence_complete = verified_evidence
     readiness_signals = [
         identity_complete,
         summary_complete,
         skills_complete,
         work_history_complete,
+        evidence_complete,
     ]
     readiness = CareerProfileReadiness(
         score=round(sum(readiness_signals) / len(readiness_signals) * 100),
@@ -64,6 +72,7 @@ def get_career_summary(current_user: CurrentUser, db: DbSession) -> CareerSummar
         summary=summary_complete,
         skills=skills_complete,
         work_history=work_history_complete,
+        verified_evidence=evidence_complete,
     )
 
     gap_counter: Counter[str] = Counter()

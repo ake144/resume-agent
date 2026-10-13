@@ -62,6 +62,37 @@ class UserProfile(Base, TimestampMixin):
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class CareerPreference(Base, TimestampMixin):
+    """One editable set of constraints used to rank future opportunities."""
+
+    __tablename__ = "career_preferences"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    work_modes: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    employment_types: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    preferred_locations: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    minimum_salary: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    salary_currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    willing_to_relocate: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    visa_sponsorship_required: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+
+class TargetRole(Base, TimestampMixin):
+    """A ranked role the user wants the agent to discover and evaluate."""
+
+    __tablename__ = "target_roles"
+    __table_args__ = (UniqueConstraint("user_id", "role_name", name="uq_target_roles_user_id_role_name"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    role_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+
 class WorkHistoryEntry(Base, TimestampMixin):
     """Normalized rather than a JSONB array: needs row-level edit/delete
     and typed dates for future ATS-autofill use, not just storage size."""
@@ -109,6 +140,26 @@ class SkillEntry(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     category: Mapped[str | None] = mapped_column(String(50), nullable=True)
     proficiency: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+
+class CareerEvidence(Base, TimestampMixin):
+    """A user-owned professional claim with explicit provenance."""
+
+    __tablename__ = "career_evidence"
+    __table_args__ = (Index("ix_career_evidence_user_id_type", "user_id", "evidence_type"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    source_resume_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("resume_versions.id", ondelete="SET NULL"), nullable=True
+    )
+    evidence_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str] = mapped_column(String(30), nullable=False, default="user_entered")
+    verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class ResumeFile(Base):
