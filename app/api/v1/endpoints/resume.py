@@ -7,6 +7,7 @@ NOTE: This endpoint is deprecated. Use the new endpoints instead:
 - POST /api/v1/applications/workflow - for full workflow
 """
 from typing import Annotated, Optional
+import uuid
 
 from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
 from fastapi import HTTPException, status
@@ -14,7 +15,8 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_resume_service, get_current_user
 from app.core.database import get_db
-from app.db.models import ResumeFile, User
+from app.db.models import ResumeFile, ResumeVersion, User
+from app.schemas.profile import ResumeVersionResponse
 from app.schemas.base import APIResponse
 from app.services.resume import ResumeSerives
 import logging
@@ -94,4 +96,40 @@ async def get_resume_file(
         content=resume_file.data,
         media_type=resume_file.content_type,
         headers={"Content-Disposition": f'inline; filename="{resume_file.filename}"'},
+    )
+
+
+@router.get(
+    "/versions",
+    response_model=list[ResumeVersionResponse],
+    summary="List stored resume versions",
+)
+def list_resume_versions(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return (
+        db.query(ResumeVersion)
+        .filter(ResumeVersion.user_id == current_user.id)
+        .order_by(ResumeVersion.created_at.desc())
+        .all()
+    )
+
+
+@router.get(
+    "/versions/{version_id}/file",
+    summary="Download a stored resume version",
+)
+def get_resume_version_file(
+    version_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    version = db.get(ResumeVersion, version_id)
+    if version is None or version.user_id != current_user.id or version.data is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resume version not found")
+    return Response(
+        content=version.data,
+        media_type=version.content_type or "application/octet-stream",
+        headers={"Content-Disposition": f'inline; filename="{version.filename or version.title}"'},
     )

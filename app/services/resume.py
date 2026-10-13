@@ -1,10 +1,14 @@
 import asyncio
 import uuid
+import hashlib
+import io
 from typing import Any, Dict, Optional
 
 from fastapi import HTTPException, UploadFile, status
+from pypdf import PdfReader
 from sqlalchemy.orm import Session
 
+from app.db.models import ResumeVersion
 from app.services.base import BaseService
 
 MAX_RESUME_FILE_BYTES = 5 * 1024 * 1024  # 5MB
@@ -21,6 +25,40 @@ def _upsert_resume_file_sync(db: Session, user_id: uuid.UUID, filename: str, con
     else:
         db.add(ResumeFile(user_id=user_id, filename=filename, content_type=content_type, data=data))
     db.commit()
+
+
+def _save_resume_version_sync(
+    db: Session,
+    user_id: uuid.UUID,
+    title: str,
+    filename: str | None,
+    content_type: str | None,
+    data: bytes | None,
+    extracted_text: str,
+) -> ResumeVersion:
+    content_hash = hashlib.sha256(extracted_text.encode("utf-8")).hexdigest()
+    existing = (
+        db.query(ResumeVersion)
+        .filter(ResumeVersion.user_id == user_id, ResumeVersion.content_hash == content_hash)
+        .one_or_none()
+    )
+    if existing is not None:
+        return existing
+
+    version = ResumeVersion(
+        user_id=user_id,
+        title=title,
+        filename=filename,
+        content_type=content_type,
+        data=data,
+        extracted_text=extracted_text,
+        content_hash=content_hash,
+        parser_status="parsed",
+    )
+    db.add(version)
+    db.commit()
+    db.refresh(version)
+    return version
 
 
 class ResumeSerives(BaseService):
@@ -77,6 +115,34 @@ class ResumeSerives(BaseService):
                 # reset the stream position rather than re-reading a second
                 # UploadFile or threading raw bytes through its signature.
                 await file.seek(0)
+
+            version_text = text
+            version_data = None
+            version_filename = None
+            version_content_type = None
+            if file is not None and file.filename:
+                version_filename = file.filename
+                version_content_type = file.content_type or "application/octet-stream"
+                await file.seek(0)
+                version_data = await file.read()
+                if file.filename.lower().endswith(".pdf"):
+                    reader = PdfReader(io.BytesIO(version_data))
+                    version_text = "\n".join(page.extract_text() or "" for page in reader.pages)
+                else:
+                    version_text = version_data.decode("utf-8")
+                await file.seek(0)
+
+            if version_text and len(version_text.strip()) >= 20:
+                await asyncio.to_thread(
+                    _save_resume_version_sync,
+                    db,
+                    uuid.UUID(user_id),
+                    title,
+                    version_filename,
+                    version_content_type,
+                    version_data,
+                    version_text,
+                )
 
             # Local import to avoid expensive or circular imports at module import time
             from app.ingestion.resume_ingestor import ingest_resume

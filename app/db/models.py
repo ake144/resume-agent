@@ -131,6 +131,33 @@ class ResumeFile(Base):
     )
 
 
+class ResumeVersion(Base, TimestampMixin):
+    """Immutable resume snapshot used as career-profile evidence.
+
+    The legacy ResumeFile row remains for compatibility with existing download
+    consumers; new ingestion records are stored here instead of overwriting
+    the user's previous resume.
+    """
+
+    __tablename__ = "resume_versions"
+    __table_args__ = (
+        Index("ix_resume_versions_user_id_created_at", "user_id", "created_at"),
+        UniqueConstraint("user_id", "content_hash", name="uq_resume_versions_user_id_content_hash"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    content_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    extracted_text: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    parser_status: Mapped[str] = mapped_column(String(30), nullable=False, default="parsed")
+
+
 class JobPosting(Base):
     """Structured job data. Complements, doesn't replace, the temp
     PGVector store: job ingestion still chunks+embeds the description for

@@ -116,3 +116,17 @@ class SkillEntryResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ResumeVersionResponse(BaseModel):
+    id: UUID
+    title: str
+    filename: Optional[str] = None
+    content_type: Optional[str] = None
+    extracted_text: str
+    content_hash: str
+    parser_status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
