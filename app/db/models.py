@@ -243,6 +243,33 @@ class JobPosting(Base):
     )
 
 
+class MatchResult(Base, TimestampMixin):
+    """Versioned snapshot of a user's evaluation of a job posting."""
+
+    __tablename__ = "match_results"
+    __table_args__ = (
+        Index("ix_match_results_user_id_created_at", "user_id", "created_at"),
+        Index("ix_match_results_job_posting_id_created_at", "job_posting_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    job_posting_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("job_postings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    matcher_version: Mapped[str] = mapped_column(String(50), nullable=False, default="preferences-v1")
+    match_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    confidence_level: Mapped[str] = mapped_column(String(20), nullable=False)
+    preference_alignment: Mapped[str] = mapped_column(String(40), nullable=False)
+    strong_matches: Mapped[list] = mapped_column(JSONB, nullable=False)
+    skill_gaps: Mapped[list] = mapped_column(JSONB, nullable=False)
+    tailoring_recommendations: Mapped[list] = mapped_column(JSONB, nullable=False)
+    hard_constraints: Mapped[list] = mapped_column(JSONB, nullable=False)
+    sources: Mapped[list] = mapped_column(JSONB, nullable=False)
+
+
 class Application(Base, TimestampMixin):
     """Tracking: what was applied to, when, with what generated content
     and result. Nothing persisted generated application content anywhere

@@ -1,6 +1,8 @@
 """Schemas for job-related requests and responses."""
 from pydantic import BaseModel, Field, HttpUrl
 from typing import Optional, List
+from datetime import datetime
+from uuid import UUID
 
 
 class JobIngestionRequest(BaseModel):
@@ -27,6 +29,7 @@ class JobMatchRequest(BaseModel):
     """Request schema for job matching."""
     job_text: str = Field(..., description="Job description text")
     job_title: str = Field(..., description="Job title")
+    job_posting_id: Optional[UUID] = Field(None, description="Owned posting to attach the match to")
 
     class Config:
         json_schema_extra = {
@@ -45,6 +48,8 @@ class JobMatchResponse(BaseModel):
     tailoring_recommendations: List[str] = Field(..., description="Tailoring recommendations")
     overall_verdict: str = Field(..., description="Overall verdict on fit")
     confidence_level: str = Field(..., description="Confidence level (High/Medium/Low)")
+    preference_alignment: str = Field(default="Unknown")
+    hard_constraints: List[str] = Field(default_factory=list)
 
     class Config:
         json_schema_extra = {
@@ -56,4 +61,42 @@ class JobMatchResponse(BaseModel):
                 "overall_verdict": "Strong candidate",
                 "confidence_level": "High"
             }
-        }
+            }
+
+
+class MatchResultSummaryResponse(BaseModel):
+    id: UUID
+    job_posting_id: UUID
+    matcher_version: str
+    match_score: int
+    confidence_level: str
+    preference_alignment: str
+    skill_gaps: List[str]
+    hard_constraints: List[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MatchResultDetailResponse(MatchResultSummaryResponse):
+    strong_matches: List[str]
+    tailoring_recommendations: List[str]
+    sources: List[dict]
+
+
+class JobPostingResponse(BaseModel):
+    id: UUID
+    title: str
+    company: Optional[str] = None
+    location: Optional[str] = None
+    description: str
+    source_url: Optional[str] = None
+    source_type: str
+    discovered_at: datetime
+    expires_at: Optional[datetime] = None
+    is_expired: bool
+    latest_match_score: Optional[int] = None
+
+    class Config:
+        from_attributes = True

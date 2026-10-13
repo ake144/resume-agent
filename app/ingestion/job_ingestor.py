@@ -30,6 +30,21 @@ async def ingest_job(
         company: str = None,
         location: str = None,
 ):
+    existing = None
+    if source_url:
+        existing = (
+            db.query(JobPosting)
+            .filter(JobPosting.user_id == uuid.UUID(user_id), JobPosting.source_url == source_url)
+            .one_or_none()
+        )
+    if existing is not None:
+        return {
+            "status": "duplicate",
+            "chunks_ingested": 0,
+            "title": existing.title,
+            "job_posting_id": str(existing.id),
+        }
+
     # Structured row first (so its id can be cross-linked into the embedded
     # chunks' metadata below); the row persists indefinitely, independent of
     # the chunks' 7-day TTL - see app/db/models.py:JobPosting.
@@ -40,6 +55,7 @@ async def ingest_job(
         location=location,
         description=job_text,
         source_url=source_url,
+        expires_at=datetime.utcnow() + timedelta(days=30),
     )
     # Sync SQLAlchemy call from an async function: threadpooled the same way
     # vector_store.add_documents is below, to avoid blocking the event loop.

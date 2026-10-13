@@ -1,4 +1,5 @@
 """Career-agent summary endpoints."""
+from datetime import datetime, timezone
 from typing import Annotated
 from collections import Counter
 
@@ -7,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
-from app.db.models import Application, CareerEvidence, SkillEntry, User, UserProfile, WorkHistoryEntry
+from app.db.models import Application, CareerEvidence, CareerPreference, SkillEntry, TargetRole, User, UserProfile, WorkHistoryEntry
 from app.schemas.application import ApplicationStatus
 from app.schemas.career import (
     CareerAction,
@@ -49,6 +50,16 @@ def get_career_summary(current_user: CurrentUser, db: DbSession) -> CareerSummar
         .filter(Application.user_id == current_user.id)
         .order_by(Application.created_at.desc())
         .limit(6)
+        .all()
+    )
+    preferences = db.get(CareerPreference, current_user.id)
+    if preferences is None:
+        preferences = CareerPreference(user_id=current_user.id)
+        preferences.updated_at = datetime.now(timezone.utc)
+    target_roles = (
+        db.query(TargetRole)
+        .filter(TargetRole.user_id == current_user.id)
+        .order_by(TargetRole.priority.asc(), TargetRole.created_at.asc())
         .all()
     )
 
@@ -141,4 +152,6 @@ def get_career_summary(current_user: CurrentUser, db: DbSession) -> CareerSummar
         average_match_score=round(sum(match_scores) / len(match_scores)) if match_scores else None,
         recent_applications=applications,
         next_actions=actions,
+        preferences=preferences,
+        target_roles=target_roles,
     )

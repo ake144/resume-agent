@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.schemas.application import ApplicationSummaryResponse
+from app.schemas.profile import CareerPreferenceResponse, TargetRoleResponse
 
 
 class CareerAction(BaseModel):
@@ -29,3 +30,5 @@ class CareerSummaryResponse(BaseModel):
     average_match_score: int | None = None
     recent_applications: list[ApplicationSummaryResponse]
     next_actions: list[CareerAction]
+    preferences: CareerPreferenceResponse
+    target_roles: list[TargetRoleResponse]

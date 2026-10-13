@@ -10,3 +10,5 @@ class JobMatchAnalysis(BaseModel):
     tailoring_recommendations: List[str] = Field(..., description="Key tailoring recommendations for the candidate")
     overall_verdict: str = Field(..., description="Overall verdict on the candidate's fit for the job")
     confidence_level: str = Field(..., description="Confidence level of the analysis (e.g., High, Medium, Low)")
+    preference_alignment: str = Field(default="Unknown", description="How the job aligns with saved preferences")
+    hard_constraints: List[str] = Field(default_factory=list, description="Explicit preference conflicts or blockers")

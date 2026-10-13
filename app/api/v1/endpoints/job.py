@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.schemas.job import JobIngestionRequest, JobMatchRequest, JobMatchResponse
+from uuid import UUID
 from app.schemas.base import APIResponse
 from app.services.job_service import JobService
 from app.api.dependencies import get_job_service, get_current_user
@@ -67,6 +68,7 @@ async def ingest_job(
 async def match_job(
     request: JobMatchRequest,
     current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
     service: JobService = Depends(get_job_service)
 ):
     """
@@ -84,7 +86,7 @@ async def match_job(
         HTTPException: If matching fails
     """
     try:
-        result = await service.match_job(request, user_id=str(current_user.id))
+        result = await service.match_job(request, user_id=str(current_user.id), db=db)
         return APIResponse(
             status="success",
             message="Job matched successfully",
@@ -96,3 +98,48 @@ async def match_job(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to match job"
         )
+
+
+@router.get(
+    "/matches",
+    response_model=APIResponse,
+    summary="List saved job matches",
+)
+def list_matches(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    job_posting_id: UUID | None = None,
+    service: JobService = Depends(get_job_service),
+):
+    result = service.list_match_results(db, str(current_user.id), job_posting_id)
+    return APIResponse(status="success", message="Matches retrieved", data=result)
+
+
+@router.get(
+    "/postings",
+    response_model=APIResponse,
+    summary="List stored job opportunities",
+)
+def list_postings(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    include_expired: bool = False,
+    service: JobService = Depends(get_job_service),
+):
+    result = service.list_job_postings(db, str(current_user.id), include_expired)
+    return APIResponse(status="success", message="Job postings retrieved", data=result)
+
+
+@router.get(
+    "/matches/{match_id}",
+    response_model=APIResponse,
+    summary="Get a saved job match",
+)
+def get_match(
+    match_id: UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    service: JobService = Depends(get_job_service),
+):
+    result = service.get_match_result(db, str(current_user.id), match_id)
+    return APIResponse(status="success", message="Match retrieved", data=result)
