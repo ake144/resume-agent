@@ -12,6 +12,7 @@ plain indexed `WHERE hashed_api_key = :digest`.
 import hashlib
 import hmac
 import secrets
+import time
 
 from app.core.config import settings
 
@@ -30,3 +31,20 @@ def hash_api_key(raw_key: str) -> str:
         raw_key.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
+
+
+def make_signed_token(subject: str, purpose: str, ttl_seconds: int = 900) -> str:
+    expires = int(time.time()) + ttl_seconds
+    payload = f"{purpose}:{subject}:{expires}"
+    signature = hmac.new(settings.api_key_pepper.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return f"{payload}:{signature}"
+
+
+def read_signed_token(token: str, purpose: str) -> str | None:
+    try:
+        token_purpose, subject, expires, signature = token.rsplit(":", 3)
+        payload = f"{token_purpose}:{subject}:{expires}"
+        expected = hmac.new(settings.api_key_pepper.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        if token_purpose != purpose or int(expires) < time.time() or not hmac.compare_digest(signature, expected): return None
+        return subject
+    except (ValueError, TypeError): return None

@@ -2,13 +2,13 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
 from app.core.database import get_db
-from app.core.security import generate_api_key, hash_api_key
+from app.core.security import generate_api_key, hash_api_key, make_signed_token, read_signed_token
 from app.db.models import User, UserProfile
 from app.schemas.user import UserRegistrationRequest, UserRegistrationResponse, UserResponse
 
@@ -69,3 +69,21 @@ def get_me(current_user: Annotated[User, Depends(get_current_user)]):
         email=current_user.email,
         created_at=current_user.created_at,
     )
+
+
+@router.post("/magic-link", status_code=status.HTTP_202_ACCEPTED)
+def request_magic_link(email: str, db: Annotated[Session, Depends(get_db)]):
+    user = db.query(User).filter(User.email == email.lower()).first()
+    if user:
+        token = make_signed_token(str(user.id), "magic-link")
+        logger.info("Development magic link for %s: /api/v1/users/magic-link/verify?token=%s", email, token)
+    return {"message": "If the account exists, a sign-in link has been sent."}
+
+
+@router.post("/magic-link/verify")
+def verify_magic_link(token: str, response: Response, db: Annotated[Session, Depends(get_db)]):
+    user_id = read_signed_token(token, "magic-link")
+    user = db.get(User, user_id) if user_id else None
+    if user is None or not user.is_active: raise HTTPException(status_code=401, detail="Invalid or expired sign-in link")
+    response.set_cookie("resume_session", make_signed_token(str(user.id), "session", 60 * 60 * 24 * 7), httponly=True, samesite="lax", secure=False, max_age=60 * 60 * 24 * 7)
+    return {"id": str(user.id), "email": user.email}

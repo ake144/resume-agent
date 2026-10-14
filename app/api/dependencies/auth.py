@@ -6,7 +6,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import hash_api_key
+from app.core.security import hash_api_key, read_signed_token
+from fastapi import Request
 from app.db.models import User
 
 # auto_error=False so both "missing header" and "invalid key" can be raised
@@ -16,6 +17,7 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
+    request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
     db: Annotated[Session, Depends(get_db)],
 ) -> User:
@@ -31,8 +33,11 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    if credentials is None or not credentials.credentials:
-        raise unauthorized
+    session_user_id = read_signed_token(request.cookies.get("resume_session", ""), "session")
+    if session_user_id:
+        user = db.get(User, session_user_id)
+        if user and user.is_active: return user
+    if credentials is None or not credentials.credentials: raise unauthorized
 
     hashed = hash_api_key(credentials.credentials)
     user = db.query(User).filter(User.hashed_api_key == hashed).first()

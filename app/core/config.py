@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     cors_origins: list = ["http://localhost:3001", "http://localhost:5173", "http://localhost:8000"]
     cors_methods: list = ["*"]
     cors_headers: list = ["*"]
-    cors_credentials: bool = False
+    cors_credentials: bool = True
 
     # Server
     server_host: str = "0.0.0.0"
