@@ -69,6 +69,7 @@ class JobMatchResponse(BaseModel):
 class MatchResultSummaryResponse(BaseModel):
     id: UUID
     job_posting_id: UUID
+    resume_version_id: Optional[UUID] = None
     matcher_version: str
     match_score: int
     confidence_level: str
@@ -125,6 +126,24 @@ class DiscoveryResponse(BaseModel):
     jobs_seen: int
     created: int
     updated: int
+
+
+class RankJobPostingsRequest(BaseModel):
+    """Evaluate stored opportunities that do not already have a match."""
+
+    posting_ids: Optional[List[UUID]] = Field(
+        None, description="Specific owned postings to rank; omit to rank all unranked active postings"
+    )
+    source_id: Optional[UUID] = Field(None, description="Limit automatic ranking to one configured source")
+    limit: int = Field(25, ge=1, le=50)
+    refresh: bool = Field(False, description="Create a new snapshot even if the posting already has one")
+
+
+class RankJobPostingsResponse(BaseModel):
+    evaluated: int
+    skipped: int
+    failed: int
+    match_ids: List[UUID] = Field(default_factory=list)
 
 
 class LocalSourcePresetResponse(BaseModel):

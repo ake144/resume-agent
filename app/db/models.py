@@ -279,6 +279,12 @@ class MatchResult(Base, TimestampMixin):
     job_posting_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("job_postings.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    # A match is a snapshot of the career material available at evaluation
+    # time.  Keeping this nullable preserves older/manual matches made before
+    # resume versioning was introduced.
+    resume_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("resume_versions.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     matcher_version: Mapped[str] = mapped_column(String(50), nullable=False, default="preferences-v1")
     match_score: Mapped[int] = mapped_column(Integer, nullable=False)
     confidence_level: Mapped[str] = mapped_column(String(20), nullable=False)

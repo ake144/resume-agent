@@ -29,6 +29,7 @@ class DiscoveryService:
         now = datetime.now(timezone.utc)
         created = 0
         updated = 0
+        posting_ids: list[str] = []
         for job in jobs:
             existing = (
                 db.query(JobPosting)
@@ -40,23 +41,26 @@ class DiscoveryService:
                 .one_or_none()
             )
             if existing is None:
-                db.add(
-                    JobPosting(
-                        user_id=user_uuid,
-                        title=job.title,
-                        company=job.company,
-                        location=job.location,
-                        description=job.description,
-                        source_url=job.source_url,
-                        source_type=source.provider,
-                        source_id=source.id,
-                        external_id=job.external_id,
-                        discovery_status="discovered",
-                        discovered_at=now,
-                        expires_at=now + timedelta(days=30),
-                    )
+                posting = JobPosting(
+                    user_id=user_uuid,
+                    title=job.title,
+                    company=job.company,
+                    location=job.location,
+                    description=job.description,
+                    source_url=job.source_url,
+                    source_type=source.provider,
+                    source_id=source.id,
+                    external_id=job.external_id,
+                    discovery_status="discovered",
+                    discovered_at=now,
+                    expires_at=now + timedelta(days=30),
                 )
+                db.add(posting)
                 created += 1
+                # Flush so the UI can immediately request matching for the
+                # exact rows discovered in this run.
+                db.flush()
+                posting_ids.append(str(posting.id))
             else:
                 existing.title = job.title
                 existing.company = job.company
@@ -67,6 +71,7 @@ class DiscoveryService:
                 existing.discovered_at = now
                 existing.expires_at = now + timedelta(days=30)
                 updated += 1
+                posting_ids.append(str(existing.id))
         db.commit()
         return {
             "source_id": str(source.id),
@@ -74,4 +79,5 @@ class DiscoveryService:
             "jobs_seen": len(jobs),
             "created": created,
             "updated": updated,
+            "posting_ids": posting_ids,
         }

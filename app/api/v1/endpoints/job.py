@@ -10,6 +10,7 @@ from app.schemas.job import (
     JobMatchResponse,
     JobSourceCreate,
     LocalSourcePresetResponse,
+    RankJobPostingsRequest,
 )
 from uuid import UUID
 from app.schemas.base import APIResponse
@@ -115,6 +116,21 @@ async def match_job(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to match job"
         )
+
+
+@router.post(
+    "/postings/rank",
+    response_model=APIResponse,
+    summary="Evaluate and rank stored opportunities",
+)
+async def rank_postings(
+    request: RankJobPostingsRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    service: JobService = Depends(get_job_service),
+):
+    result = await service.rank_job_postings(db, str(current_user.id), request)
+    return APIResponse(status="success", message="Opportunity ranking completed", data=result)
 
 
 @router.get(
