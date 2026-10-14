@@ -1,7 +1,7 @@
 """Schemas for application generation requests and responses."""
 from datetime import datetime
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Literal
 from uuid import UUID
 from enum import Enum
 
@@ -25,6 +25,9 @@ class ApplicationStatus(str, Enum):
     OFFER = "offer"
     REJECTED = "rejected"
     WITHDRAWN = "withdrawn"
+
+
+ArtifactState = Literal["draft", "needs_review", "approved", "rejected", "revised"]
 
 
 class ApplicationGenerationRequest(BaseModel):
@@ -58,6 +61,10 @@ class ApplicationGenerationResponse(BaseModel):
     match_score: int = Field(..., description="Overall match score (0-100) used to ground generation")
     sources_used: int = Field(..., description="Number of retrieved source chunks used to ground generation")
     generated_at: str = Field(..., description="Timestamp of generation")
+    artifact_id: UUID = Field(..., description="Immutable generated artifact awaiting review")
+    artifact_state: ArtifactState = "needs_review"
+    evidence_citations: list[dict] = Field(default_factory=list)
+    unsupported_claims: list[str] = Field(default_factory=list)
 
     class Config:
         json_schema_extra = {
@@ -111,6 +118,32 @@ class ApplicationDetailResponse(ApplicationSummaryResponse):
     sources_used: Optional[int] = None
     match_analysis: Optional[dict] = None
     submitted_at: Optional[datetime] = None
+
+
+class ApplicationArtifactResponse(BaseModel):
+    id: UUID
+    application_id: UUID
+    parent_artifact_id: Optional[UUID] = None
+    artifact_type: str
+    state: ArtifactState
+    content: str
+    evidence_citations: list[dict]
+    unsupported_claims: list[str]
+    review_notes: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ArtifactReviewRequest(BaseModel):
+    review_notes: Optional[str] = Field(None, max_length=5000)
+
+
+class ArtifactRevisionRequest(BaseModel):
+    content: str = Field(..., min_length=1)
+    review_notes: Optional[str] = Field(None, max_length=5000)
 
 
 class ApplicationListResponse(BaseModel):

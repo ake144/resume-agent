@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
-from app.db.models import Application, CareerEvidence, CareerPreference, SkillEntry, TargetRole, User, UserProfile, WorkHistoryEntry
+from app.db.models import Application, CareerEvidence, CareerPreference, MatchResult, SkillEntry, TargetRole, User, UserProfile, WorkHistoryEntry
 from app.schemas.application import ApplicationStatus
 from app.schemas.career import (
     CareerAction,
@@ -52,6 +52,13 @@ def get_career_summary(current_user: CurrentUser, db: DbSession) -> CareerSummar
         .limit(6)
         .all()
     )
+    matches = (
+        db.query(MatchResult)
+        .filter(MatchResult.user_id == current_user.id)
+        .order_by(MatchResult.created_at.desc())
+        .limit(100)
+        .all()
+    )
     preferences = db.get(CareerPreference, current_user.id)
     if preferences is None:
         preferences = CareerPreference(user_id=current_user.id)
@@ -86,18 +93,24 @@ def get_career_summary(current_user: CurrentUser, db: DbSession) -> CareerSummar
         verified_evidence=evidence_complete,
     )
 
+    # Roadmap insights intentionally come from durable MatchResult snapshots,
+    # rather than generated applications.  A user can therefore learn from
+    # every evaluated opportunity, including roles they chose not to apply to.
     gap_counter: Counter[str] = Counter()
-    for application in applications:
-        analysis = application.match_analysis or {}
-        for gap in analysis.get("skill_gaps", []):
+    strong_match_counter: Counter[str] = Counter()
+    recommendation_counter: Counter[str] = Counter()
+    for match in matches:
+        for gap in match.skill_gaps:
             if isinstance(gap, str) and gap.strip():
                 gap_counter[gap.strip()] += 1
+        for strength in match.strong_matches:
+            if isinstance(strength, str) and strength.strip():
+                strong_match_counter[strength.strip()] += 1
+        for recommendation in match.tailoring_recommendations:
+            if isinstance(recommendation, str) and recommendation.strip():
+                recommendation_counter[recommendation.strip()] += 1
 
-    match_scores = [
-        application.match_score
-        for application in applications
-        if application.match_score is not None
-    ]
+    match_scores = [match.match_score for match in matches]
     active_statuses = {
         ApplicationStatus.DRAFT,
         ApplicationStatus.GENERATED,
@@ -125,7 +138,18 @@ def get_career_summary(current_user: CurrentUser, db: DbSession) -> CareerSummar
                 priority="build",
             )
         )
-    if applications:
+    actionable_matches = [match for match in matches if not match.hard_constraints]
+    if actionable_matches:
+        best_match = max(actionable_matches, key=lambda match: match.match_score)
+        actions.append(
+            CareerAction(
+                title="Review your strongest opportunity",
+                description=f"A saved opportunity currently has a {best_match.match_score}% compatibility score.",
+                href="/dashboard/opportunities",
+                priority="ready",
+            )
+        )
+    elif applications:
         actions.append(
             CareerAction(
                 title="Review your latest application",
@@ -148,6 +172,9 @@ def get_career_summary(current_user: CurrentUser, db: DbSession) -> CareerSummar
         display_name=profile.full_name if profile else None,
         profile_readiness=readiness,
         skill_gaps=[gap for gap, _ in gap_counter.most_common(8)],
+        strong_matches=[match for match, _ in strong_match_counter.most_common(8)],
+        tailoring_recommendations=[recommendation for recommendation, _ in recommendation_counter.most_common(8)],
+        durable_match_count=len(matches),
         active_applications=active_applications,
         average_match_score=round(sum(match_scores) / len(match_scores)) if match_scores else None,
         recent_applications=applications,

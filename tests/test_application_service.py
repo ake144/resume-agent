@@ -9,7 +9,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.schemas.application import ApplicationGenerationRequest, ApplicationType
+from app.db.models import ApplicationArtifact
+from app.schemas.application import ApplicationGenerationRequest, ApplicationType, ArtifactRevisionRequest, ArtifactReviewRequest
 from app.services.application_service import ApplicationService
 
 
@@ -40,6 +41,32 @@ async def test_generate_application_constructs_response(db_session, authed_user)
     assert response.match_score == 85
     assert response.sources_used == 3
     assert response.application_type == ApplicationType.COVER_LETTER
+    assert response.artifact_state == "needs_review"
+    assert db_session.get(ApplicationArtifact, response.artifact_id).content == "Dear Hiring Manager..."
+
+
+async def test_artifact_review_and_revision_are_immutable(db_session, authed_user):
+    user, _, _ = authed_user
+    fake_result = {
+        "application_package": "cover_letter", "content": "Original draft", "match_score": 85,
+        "sources_used": 1, "match_analysis": {}, "evidence_citations": [{"type": "resume", "title": "Primary"}],
+    }
+    request = ApplicationGenerationRequest(job_description="Some job description", job_title="Engineer")
+    with patch("app.services.application_service.generate_application_package", new=AsyncMock(return_value=fake_result)):
+        response = await ApplicationService().generate_application(request, str(user.id), db_session)
+
+    service = ApplicationService()
+    revised = service.revise_artifact(
+        db_session, str(user.id), response.artifact_id,
+        ArtifactRevisionRequest(content="Edited draft", review_notes="Clarified a supported accomplishment"),
+    )
+    original = db_session.get(ApplicationArtifact, response.artifact_id)
+    approved = service.approve_artifact(db_session, str(user.id), revised.id, ArtifactReviewRequest(review_notes="Verified"))
+
+    assert original.content == "Original draft"
+    assert original.state == "revised"
+    assert revised.parent_artifact_id == response.artifact_id
+    assert approved.state == "approved"
 
 
 async def test_generate_application_requires_existing_user(db_session):

@@ -2,7 +2,7 @@
 import asyncio
 import math
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 
 from fastapi import HTTPException, status
@@ -14,12 +14,15 @@ from app.schemas.application import (
     ApplicationGenerationRequest,
     ApplicationGenerationResponse,
     ApplicationListResponse,
+    ApplicationArtifactResponse,
+    ArtifactReviewRequest,
+    ArtifactRevisionRequest,
     ApplicationType,
     WorkflowRequest
 )
 from app.agents.generator import generate_application_package
 from app.agents.workflow import app_graph
-from app.db.models import Application, JobPosting
+from app.db.models import Application, ApplicationArtifact, JobPosting
 
 
 def _save_application_sync(db: Session, application: Application) -> Application:
@@ -27,6 +30,13 @@ def _save_application_sync(db: Session, application: Application) -> Application
     db.commit()
     db.refresh(application)
     return application
+
+
+def _save_artifact_sync(db: Session, artifact: ApplicationArtifact) -> ApplicationArtifact:
+    db.add(artifact)
+    db.commit()
+    db.refresh(artifact)
+    return artifact
 
 
 def _resolve_job_posting_sync(
@@ -54,6 +64,9 @@ class ApplicationService(BaseService):
         # Sync SQLAlchemy call from an async method: threadpooled to avoid
         # blocking the event loop, same pattern used in the ingestion layer.
         return await asyncio.to_thread(_save_application_sync, db, application)
+
+    async def _persist_artifact(self, db: Session, artifact: ApplicationArtifact) -> ApplicationArtifact:
+        return await asyncio.to_thread(_save_artifact_sync, db, artifact)
 
     async def _resolve_job_posting(
         self, db: Session, job_posting_id: uuid.UUID | None, user_id: uuid.UUID
@@ -106,7 +119,14 @@ class ApplicationService(BaseService):
                 sources_used=result["sources_used"],
                 match_analysis=result.get("match_analysis"),
             )
-            await self._persist_application(db, application)
+            application = await self._persist_application(db, application)
+            artifact = ApplicationArtifact(
+                user_id=user_uuid, application_id=application.id,
+                artifact_type=request.application_type.value, state="needs_review",
+                content=result["content"], evidence_citations=result.get("evidence_citations", []),
+                unsupported_claims=result.get("unsupported_claims", []),
+            )
+            artifact = await self._persist_artifact(db, artifact)
 
             return ApplicationGenerationResponse(
                 user_id=user_id,
@@ -115,7 +135,11 @@ class ApplicationService(BaseService):
                 content=result["content"],
                 match_score=result["match_score"],
                 sources_used=result["sources_used"],
-                generated_at=datetime.utcnow().isoformat() + "Z"
+                generated_at=datetime.now(timezone.utc).isoformat(),
+                artifact_id=artifact.id,
+                artifact_state="needs_review",
+                evidence_citations=artifact.evidence_citations,
+                unsupported_claims=artifact.unsupported_claims,
             )
         except Exception as e:
             self.log_error(
@@ -174,6 +198,14 @@ class ApplicationService(BaseService):
                 match_analysis=final_output.get("match_analysis"),
             )
             application = await self._persist_application(db, application)
+            artifact = ApplicationArtifact(
+                user_id=user_uuid, application_id=application.id,
+                artifact_type=ApplicationType.COVER_LETTER.value, state="needs_review",
+                content=application.generated_content,
+                evidence_citations=final_output.get("evidence_citations", []),
+                unsupported_claims=final_output.get("unsupported_claims", []),
+            )
+            await self._persist_artifact(db, artifact)
             result["id"] = str(application.id)
 
             return result
@@ -206,3 +238,47 @@ class ApplicationService(BaseService):
         if application is None or application.user_id != uuid.UUID(user_id):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
         return ApplicationDetailResponse.model_validate(application)
+
+    def list_artifacts(self, db: Session, user_id: str, application_id: uuid.UUID) -> list[ApplicationArtifactResponse]:
+        self.get_application(db, user_id, application_id)
+        rows = db.query(ApplicationArtifact).filter(
+            ApplicationArtifact.application_id == application_id,
+            ApplicationArtifact.user_id == uuid.UUID(user_id),
+        ).order_by(ApplicationArtifact.created_at.desc()).all()
+        return [ApplicationArtifactResponse.model_validate(row) for row in rows]
+
+    def _get_owned_artifact(self, db: Session, user_id: str, artifact_id: uuid.UUID) -> ApplicationArtifact:
+        artifact = db.get(ApplicationArtifact, artifact_id)
+        if artifact is None or artifact.user_id != uuid.UUID(user_id):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application artifact not found")
+        return artifact
+
+    def approve_artifact(self, db: Session, user_id: str, artifact_id: uuid.UUID, request: ArtifactReviewRequest) -> ApplicationArtifactResponse:
+        artifact = self._get_owned_artifact(db, user_id, artifact_id)
+        if artifact.state != "needs_review":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only artifacts awaiting review can be approved")
+        artifact.state, artifact.review_notes, artifact.reviewed_at = "approved", request.review_notes, datetime.now(timezone.utc)
+        db.commit(); db.refresh(artifact)
+        return ApplicationArtifactResponse.model_validate(artifact)
+
+    def reject_artifact(self, db: Session, user_id: str, artifact_id: uuid.UUID, request: ArtifactReviewRequest) -> ApplicationArtifactResponse:
+        artifact = self._get_owned_artifact(db, user_id, artifact_id)
+        if artifact.state != "needs_review":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only artifacts awaiting review can be rejected")
+        artifact.state, artifact.review_notes, artifact.reviewed_at = "rejected", request.review_notes, datetime.now(timezone.utc)
+        db.commit(); db.refresh(artifact)
+        return ApplicationArtifactResponse.model_validate(artifact)
+
+    def revise_artifact(self, db: Session, user_id: str, artifact_id: uuid.UUID, request: ArtifactRevisionRequest) -> ApplicationArtifactResponse:
+        artifact = self._get_owned_artifact(db, user_id, artifact_id)
+        if artifact.state not in {"needs_review", "rejected"}:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only unapproved artifacts can be revised")
+        artifact.state, artifact.reviewed_at = "revised", datetime.now(timezone.utc)
+        revised = ApplicationArtifact(
+            user_id=artifact.user_id, application_id=artifact.application_id, parent_artifact_id=artifact.id,
+            artifact_type=artifact.artifact_type, state="needs_review", content=request.content,
+            evidence_citations=artifact.evidence_citations, unsupported_claims=artifact.unsupported_claims,
+            review_notes=request.review_notes,
+        )
+        db.add(revised); db.commit(); db.refresh(revised)
+        return ApplicationArtifactResponse.model_validate(revised)

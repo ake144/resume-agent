@@ -26,6 +26,9 @@ class CareerSummaryResponse(BaseModel):
     display_name: str | None = None
     profile_readiness: CareerProfileReadiness
     skill_gaps: list[str]
+    strong_matches: list[str]
+    tailoring_recommendations: list[str]
+    durable_match_count: int
     active_applications: int
     average_match_score: int | None = None
     recent_applications: list[ApplicationSummaryResponse]

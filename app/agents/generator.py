@@ -111,6 +111,9 @@ GENERIC_TEMPLATE = ChatPromptTemplate.from_template(
     Based on the above analysis, generate a highly tailored {application_type} that addresses the key tailoring recommendations and highlights the candidate's strong matches while mitigating any concerns or skill gaps. The {application_type} should be concise, impactful, and directly relevant to the job description and the candidate's background.
 
     Rules:
+    - Never invent experience, employers, education, metrics, or skills.
+    - Use only the candidate evidence represented in the fit analysis.
+    - If a requirement is not documented, do not state that the candidate has it.
     - Use a professional and engaging tone.
     - Focus on the most relevant skills and experiences.
     - Address any potential concerns in a positive light.
@@ -166,4 +169,15 @@ async def generate_application_package(
         "match_score": analysis.match_score,
         "sources_used": match_result["sources_used"],
         "match_analysis": analysis.model_dump(),
+        # These are provenance records for the reviewer, not a claim that
+        # every sentence was automatically verified.  The explicit review
+        # gate is what prevents unreviewed content from being treated as final.
+        "evidence_citations": match_result.get("sources", []),
+        # A gap is not proof that the candidate lacks a skill; it is a
+        # transparent signal that the agent cannot document it from the
+        # retrieved profile and must not present it as fact.
+        "unsupported_claims": [
+            f"Not documented in the retrieved profile: {gap}"
+            for gap in analysis.skill_gaps
+        ],
     }

@@ -346,3 +346,33 @@ class Application(Base, TimestampMixin):
     sources_used: Mapped[int | None] = mapped_column(Integer, nullable=True)
     match_analysis: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ApplicationArtifact(Base, TimestampMixin):
+    """An immutable generated document and its human-review decision.
+
+    Artifact state is deliberately independent from Application.status: a
+    document can be approved without claiming that an external application
+    was submitted.  Revisions create a new row linked to its parent.
+    """
+
+    __tablename__ = "application_artifacts"
+    __table_args__ = (Index("ix_application_artifacts_application_created", "application_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    application_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    parent_artifact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("application_artifacts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    artifact_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    state: Mapped[str] = mapped_column(String(20), nullable=False, default="needs_review")
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_citations: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    unsupported_claims: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    review_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

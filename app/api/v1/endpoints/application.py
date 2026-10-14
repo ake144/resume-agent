@@ -10,6 +10,8 @@ from app.schemas.application import (
     ApplicationGenerationRequest,
     ApplicationGenerationResponse,
     ApplicationListResponse,
+    ArtifactReviewRequest,
+    ArtifactRevisionRequest,
     WorkflowRequest
 )
 from app.schemas.base import APIResponse
@@ -144,3 +146,27 @@ def get_application(
 ):
     result = service.get_application(db, user_id=str(current_user.id), application_id=application_id)
     return APIResponse(status="success", message="Application retrieved", data=result)
+
+
+@router.get("/{application_id}/artifacts", response_model=APIResponse, summary="List immutable document artifacts")
+def list_artifacts(application_id: UUID, current_user: CurrentUser, db: DbSession, service: ApplicationService = Depends(get_application_service)):
+    result = service.list_artifacts(db, str(current_user.id), application_id)
+    return APIResponse(status="success", message="Application artifacts retrieved", data=result)
+
+
+@router.post("/artifacts/{artifact_id}/approve", response_model=APIResponse, summary="Approve a reviewed artifact")
+def approve_artifact(artifact_id: UUID, request: ArtifactReviewRequest, current_user: CurrentUser, db: DbSession, service: ApplicationService = Depends(get_application_service)):
+    result = service.approve_artifact(db, str(current_user.id), artifact_id, request)
+    return APIResponse(status="success", message="Artifact approved", data=result)
+
+
+@router.post("/artifacts/{artifact_id}/reject", response_model=APIResponse, summary="Reject a reviewed artifact")
+def reject_artifact(artifact_id: UUID, request: ArtifactReviewRequest, current_user: CurrentUser, db: DbSession, service: ApplicationService = Depends(get_application_service)):
+    result = service.reject_artifact(db, str(current_user.id), artifact_id, request)
+    return APIResponse(status="success", message="Artifact rejected", data=result)
+
+
+@router.post("/artifacts/{artifact_id}/revisions", response_model=APIResponse, summary="Create a revised artifact")
+def revise_artifact(artifact_id: UUID, request: ArtifactRevisionRequest, current_user: CurrentUser, db: DbSession, service: ApplicationService = Depends(get_application_service)):
+    result = service.revise_artifact(db, str(current_user.id), artifact_id, request)
+    return APIResponse(status="success", message="Artifact revision created", data=result)
