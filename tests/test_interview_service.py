@@ -18,6 +18,9 @@ def test_interview_session_and_answer_are_user_scoped(db_session, authed_user):
     assert answer.question_index == 0
     assert answer.rubric_score is not None
     assert db_session.get(InterviewSession, session.id).improvement_plan
+    revised = service.add_answer(db_session, str(user.id), session.id, InterviewAnswerCreate(question_index=0, answer="Situation: I investigated a release risk. Task: coordinate a fix. Action: measured the bottleneck. Result: delivery time improved by 25%."))
+    assert len(service.list_answers(db_session, str(user.id), session.id)) == 2
+    assert revised.id != answer.id
     with pytest.raises(Exception):
         service.add_answer(db_session, str(uuid.uuid4()), session.id, InterviewAnswerCreate(question_index=0, answer="No access"))
     service.delete_session(db_session, str(user.id), session.id)

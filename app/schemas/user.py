@@ -20,13 +20,18 @@ class UserRegistrationResponse(BaseModel):
     id: UUID
     email: EmailStr
     api_key: str
+    session_version: int
+    is_active: bool
     created_at: datetime
+
 
 
 class UserResponse(BaseModel):
     """Response schema for the authenticated user's own identity."""
     id: UUID
     email: EmailStr
+    session_version: int
+    is_active: bool
     created_at: datetime
 
 
