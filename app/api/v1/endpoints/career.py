@@ -3,17 +3,18 @@ from datetime import datetime, timezone
 from typing import Annotated
 from collections import Counter
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
-from app.db.models import Application, CareerEvidence, CareerPreference, MatchResult, SkillEntry, TargetRole, User, UserProfile, WorkHistoryEntry
+from app.db.models import Application, ApplicationArtifact, CareerEvidence, CareerPreference, MatchResult, SkillEntry, TargetRole, User, UserFeedback, UserProfile, WorkHistoryEntry
 from app.schemas.application import ApplicationStatus
 from app.schemas.career import (
     CareerAction,
     CareerProfileReadiness,
     CareerSummaryResponse,
+    FeedbackCreate,
 )
 
 router = APIRouter(tags=["career"])
@@ -182,3 +183,15 @@ def get_career_summary(current_user: CurrentUser, db: DbSession) -> CareerSummar
         preferences=preferences,
         target_roles=target_roles,
     )
+
+
+@router.post("/feedback", status_code=status.HTTP_201_CREATED)
+def create_feedback(request: FeedbackCreate, current_user: CurrentUser, db: DbSession):
+    owned = None
+    if request.subject_type == "match": owned = db.get(MatchResult, request.subject_id)
+    elif request.subject_type == "artifact": owned = db.get(ApplicationArtifact, request.subject_id)
+    if request.subject_type != "recommendation" and (owned is None or owned.user_id != current_user.id):
+        raise HTTPException(status_code=404, detail="Feedback subject not found")
+    feedback = UserFeedback(user_id=current_user.id, **request.model_dump())
+    db.add(feedback); db.commit(); db.refresh(feedback)
+    return {"id": str(feedback.id), "message": "Feedback recorded"}

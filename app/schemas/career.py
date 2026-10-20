@@ -1,6 +1,7 @@
 """Schemas for the user's career-agent command center."""
 from typing import Literal
 from pydantic import BaseModel, Field
+from uuid import UUID
 
 from app.schemas.application import ApplicationSummaryResponse
 from app.schemas.profile import CareerPreferenceResponse, TargetRoleResponse
@@ -35,3 +36,10 @@ class CareerSummaryResponse(BaseModel):
     next_actions: list[CareerAction]
     preferences: CareerPreferenceResponse
     target_roles: list[TargetRoleResponse]
+
+class FeedbackCreate(BaseModel):
+    subject_type: Literal["match", "artifact", "recommendation"]
+    subject_id: UUID
+    feedback_type: Literal["useful", "not_useful", "correction", "quality"]
+    rating: int | None = Field(None, ge=1, le=5)
+    comment: str | None = Field(None, max_length=5000)
