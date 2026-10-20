@@ -30,6 +30,9 @@ class CareerSummaryResponse(BaseModel):
     strong_matches: list[str]
     tailoring_recommendations: list[str]
     durable_match_count: int
+    feedback_count: int
+    helpful_feedback_count: int
+    average_feedback_rating: float | None = None
     active_applications: int
     average_match_score: int | None = None
     recent_applications: list[ApplicationSummaryResponse]

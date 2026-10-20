@@ -1,0 +1,8 @@
+"""add interview sessions"""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+revision="d1f6b3e8a207"; down_revision="b7e4d9a1c602"; branch_labels=depends_on=None
+def upgrade():
+ op.create_table("interview_sessions",sa.Column("id",sa.UUID(),primary_key=True),sa.Column("user_id",sa.UUID(),nullable=False),sa.Column("application_id",sa.UUID(),nullable=False),sa.Column("stage",sa.String(50),nullable=False),sa.Column("scheduled_at",sa.DateTime(timezone=True)),sa.Column("question_set",postgresql.JSONB(),nullable=False),sa.Column("improvement_plan",postgresql.JSONB(),nullable=False),sa.Column("created_at",sa.DateTime(timezone=True),server_default=sa.text("now()"),nullable=False),sa.Column("updated_at",sa.DateTime(timezone=True),server_default=sa.text("now()"),nullable=False),sa.ForeignKeyConstraint(["user_id"],["users.id"],ondelete="CASCADE"),sa.ForeignKeyConstraint(["application_id"],["applications.id"],ondelete="CASCADE"));op.create_table("interview_answers",sa.Column("id",sa.UUID(),primary_key=True),sa.Column("user_id",sa.UUID(),nullable=False),sa.Column("interview_session_id",sa.UUID(),nullable=False),sa.Column("question_index",sa.Integer(),nullable=False),sa.Column("answer",sa.Text(),nullable=False),sa.Column("feedback",sa.Text()),sa.Column("created_at",sa.DateTime(timezone=True),server_default=sa.text("now()"),nullable=False),sa.Column("updated_at",sa.DateTime(timezone=True),server_default=sa.text("now()"),nullable=False),sa.ForeignKeyConstraint(["user_id"],["users.id"],ondelete="CASCADE"),sa.ForeignKeyConstraint(["interview_session_id"],["interview_sessions.id"],ondelete="CASCADE"))
+def downgrade(): op.drop_table("interview_answers");op.drop_table("interview_sessions")

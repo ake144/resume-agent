@@ -1,7 +1,7 @@
 """Main API router configuration."""
 from fastapi import APIRouter
 from app import api
-from app.api.v1.endpoints import health, job, application, resume, users, profile, career
+from app.api.v1.endpoints import health, interview, job, application, resume, users, profile, career
 
 # Create main API router
 api_router = APIRouter(prefix="/api/v1")
@@ -13,4 +13,5 @@ api_router.include_router(profile.router, prefix="/profile", tags=["profile"])
 api_router.include_router(career.router, prefix="/career", tags=["career"])
 api_router.include_router(job.router, prefix="/jobs", tags=["jobs"])
 api_router.include_router(application.router, prefix="/applications", tags=["applications"])
+api_router.include_router(interview.router, prefix="/interviews", tags=["interviews"])
 api_router.include_router(resume.router, prefix="/resume", tags=["resume"])

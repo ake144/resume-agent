@@ -423,3 +423,25 @@ class UserFeedback(Base, TimestampMixin):
     rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
     feedback_type: Mapped[str] = mapped_column(String(40), nullable=False)
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class InterviewSession(Base, TimestampMixin):
+    __tablename__ = "interview_sessions"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    application_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True)
+    stage: Mapped[str] = mapped_column(String(50), nullable=False, default="screening")
+    scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    question_set: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    improvement_plan: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+
+
+class InterviewAnswer(Base, TimestampMixin):
+    __tablename__ = "interview_answers"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    interview_session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("interview_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    question_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    answer: Mapped[str] = mapped_column(Text, nullable=False)
+    feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rubric_score: Mapped[int | None] = mapped_column(Integer, nullable=True)

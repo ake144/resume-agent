@@ -1,7 +1,7 @@
 """Tests for the authenticated career-agent summary."""
 from datetime import date
 
-from app.db.models import Application, JobPosting, MatchResult, SkillEntry, WorkHistoryEntry
+from app.db.models import Application, JobPosting, MatchResult, SkillEntry, UserFeedback, WorkHistoryEntry
 from app.schemas.application import ApplicationStatus, ApplicationType
 
 
@@ -52,6 +52,15 @@ def test_career_summary_reports_owned_readiness_and_gaps(client, db_session, aut
             sources=[],
         )
     )
+    db_session.add(
+        UserFeedback(
+            user_id=profile,
+            subject_type="match",
+            subject_id=posting.id,
+            feedback_type="useful",
+            rating=5,
+        )
+    )
     db_session.commit()
 
     response = client.get("/api/v1/career/summary", headers={"Authorization": f"Bearer {raw_key}"})
@@ -68,6 +77,9 @@ def test_career_summary_reports_owned_readiness_and_gaps(client, db_session, aut
     assert payload["strong_matches"] == ["React experience"]
     assert payload["tailoring_recommendations"] == ["Highlight frontend testing work"]
     assert payload["durable_match_count"] == 1
+    assert payload["feedback_count"] == 1
+    assert payload["helpful_feedback_count"] == 1
+    assert payload["average_feedback_rating"] == 5.0
     assert payload["recent_applications"][0]["job_title"] == "Senior Frontend Engineer"
 
 

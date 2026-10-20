@@ -60,6 +60,11 @@ def get_career_summary(current_user: CurrentUser, db: DbSession) -> CareerSummar
         .limit(100)
         .all()
     )
+    feedback_rows = (
+        db.query(UserFeedback)
+        .filter(UserFeedback.user_id == current_user.id)
+        .all()
+    )
     preferences = db.get(CareerPreference, current_user.id)
     if preferences is None:
         preferences = CareerPreference(user_id=current_user.id)
@@ -112,6 +117,8 @@ def get_career_summary(current_user: CurrentUser, db: DbSession) -> CareerSummar
                 recommendation_counter[recommendation.strip()] += 1
 
     match_scores = [match.match_score for match in matches]
+    rated_feedback = [feedback.rating for feedback in feedback_rows if feedback.rating is not None]
+    helpful_feedback_count = sum(feedback.feedback_type == "useful" for feedback in feedback_rows)
     active_statuses = {
         ApplicationStatus.DRAFT,
         ApplicationStatus.GENERATED,
@@ -176,6 +183,9 @@ def get_career_summary(current_user: CurrentUser, db: DbSession) -> CareerSummar
         strong_matches=[match for match, _ in strong_match_counter.most_common(8)],
         tailoring_recommendations=[recommendation for recommendation, _ in recommendation_counter.most_common(8)],
         durable_match_count=len(matches),
+        feedback_count=len(feedback_rows),
+        helpful_feedback_count=helpful_feedback_count,
+        average_feedback_rating=round(sum(rated_feedback) / len(rated_feedback), 1) if rated_feedback else None,
         active_applications=active_applications,
         average_match_score=round(sum(match_scores) / len(match_scores)) if match_scores else None,
         recent_applications=applications,

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_current_user
 from app.core.database import get_db
 from app.core.security import generate_api_key, hash_api_key, make_signed_token, read_signed_token
+from app.core.config import settings
 from app.db.models import User, UserProfile
 from app.schemas.user import UserRegistrationRequest, UserRegistrationResponse, UserResponse
 
@@ -76,7 +77,7 @@ def request_magic_link(email: str, db: Annotated[Session, Depends(get_db)]):
     user = db.query(User).filter(User.email == email.lower()).first()
     if user:
         token = make_signed_token(str(user.id), "magic-link")
-        logger.info("Development magic link for %s: /api/v1/users/magic-link/verify?token=%s", email, token)
+        logger.info("Development magic link for %s: %s/auth/verify?token=%s", email, settings.frontend_url, token)
     return {"message": "If the account exists, a sign-in link has been sent."}
 
 

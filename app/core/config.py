@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     cors_methods: list = ["*"]
     cors_headers: list = ["*"]
     cors_credentials: bool = True
+    frontend_url: str = "http://localhost:3000"
 
     # Server
     server_host: str = "0.0.0.0"
