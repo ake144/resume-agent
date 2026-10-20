@@ -221,13 +221,17 @@ class ApplicationService(BaseService):
             raise
 
     def list_applications(
-        self, db: Session, user_id: str, page: int = 0, size: int = 10
+        self, db: Session, user_id: str, page: int = 0, size: int = 10,
+        status_filter: ApplicationStatus | None = None, sort: str = "newest",
     ) -> ApplicationListResponse:
         """List the authenticated user's applications, newest first."""
         query = db.query(Application).filter(Application.user_id == uuid.UUID(user_id))
+        if status_filter is not None:
+            query = query.filter(Application.status == status_filter)
         total = query.count()
+        ordering = Application.created_at.desc() if sort == "newest" else Application.created_at.asc()
         rows = (
-            query.order_by(Application.created_at.desc())
+            query.order_by(ordering, Application.id.desc())
             .offset(page * size)
             .limit(size)
             .all()

@@ -15,6 +15,7 @@ from app.schemas.application import (
     ApplicationStatusUpdateRequest,
     ApplicationTaskCreate,
     ApplicationContactCreate,
+    ApplicationStatus,
     WorkflowRequest
 )
 from app.schemas.base import APIResponse
@@ -129,9 +130,13 @@ def list_applications(
     db: DbSession,
     page: int = 0,
     size: int = 10,
+    status_filter: ApplicationStatus | None = None,
+    sort: str = "newest",
     service: ApplicationService = Depends(get_application_service),
 ):
-    result = service.list_applications(db, user_id=str(current_user.id), page=page, size=size)
+    if sort not in {"newest", "oldest"}:
+        raise HTTPException(status_code=422, detail="sort must be newest or oldest")
+    result = service.list_applications(db, user_id=str(current_user.id), page=page, size=size, status_filter=status_filter, sort=sort)
     return APIResponse(status="success", message="Applications retrieved", data=result)
 
 
