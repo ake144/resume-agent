@@ -17,12 +17,14 @@ from app.schemas.application import (
     ApplicationArtifactResponse,
     ArtifactReviewRequest,
     ArtifactRevisionRequest,
+    ApplicationStatusUpdateRequest, ApplicationEventResponse,
+    ApplicationTaskCreate, ApplicationTaskResponse,
     ApplicationType,
     WorkflowRequest
 )
 from app.agents.generator import generate_application_package
 from app.agents.workflow import app_graph
-from app.db.models import Application, ApplicationArtifact, JobPosting
+from app.db.models import Application, ApplicationArtifact, ApplicationEvent, ApplicationTask, JobPosting
 
 
 def _save_application_sync(db: Session, application: Application) -> Application:
@@ -282,3 +284,38 @@ class ApplicationService(BaseService):
         )
         db.add(revised); db.commit(); db.refresh(revised)
         return ApplicationArtifactResponse.model_validate(revised)
+
+    def update_status(self, db: Session, user_id: str, application_id: uuid.UUID, request: ApplicationStatusUpdateRequest) -> ApplicationDetailResponse:
+        application = db.get(Application, application_id)
+        if application is None or application.user_id != uuid.UUID(user_id):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
+        transitions = {
+            "draft": {"generated", "withdrawn"}, "generated": {"submitted", "withdrawn"},
+            "submitted": {"interviewing", "rejected", "withdrawn", "offer"},
+            "interviewing": {"offer", "rejected", "withdrawn"}, "offer": {"withdrawn"},
+            "rejected": set(), "withdrawn": set(),
+        }
+        old, new = application.status.value, request.status.value
+        if new not in transitions[old]:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Cannot change {old} to {new}")
+        application.status = request.status
+        if new == "submitted": application.submitted_at = datetime.now(timezone.utc)
+        db.add(ApplicationEvent(user_id=application.user_id, application_id=application.id, event_type="status_changed", from_status=old, to_status=new, note=request.note))
+        db.commit(); db.refresh(application)
+        return ApplicationDetailResponse.model_validate(application)
+
+    def list_events(self, db: Session, user_id: str, application_id: uuid.UUID) -> list[ApplicationEventResponse]:
+        self.get_application(db, user_id, application_id)
+        rows = db.query(ApplicationEvent).filter(ApplicationEvent.application_id == application_id, ApplicationEvent.user_id == uuid.UUID(user_id)).order_by(ApplicationEvent.created_at.desc()).all()
+        return [ApplicationEventResponse.model_validate(row) for row in rows]
+
+    def create_task(self, db: Session, user_id: str, application_id: uuid.UUID, request: ApplicationTaskCreate) -> ApplicationTaskResponse:
+        application = self.get_application(db, user_id, application_id)
+        task = ApplicationTask(user_id=uuid.UUID(user_id), application_id=application.id, **request.model_dump())
+        db.add(task); db.commit(); db.refresh(task)
+        return ApplicationTaskResponse.model_validate(task)
+
+    def list_tasks(self, db: Session, user_id: str, application_id: uuid.UUID) -> list[ApplicationTaskResponse]:
+        self.get_application(db, user_id, application_id)
+        rows = db.query(ApplicationTask).filter(ApplicationTask.user_id == uuid.UUID(user_id), ApplicationTask.application_id == application_id).order_by(ApplicationTask.due_at.asc().nullslast(), ApplicationTask.created_at.desc()).all()
+        return [ApplicationTaskResponse.model_validate(row) for row in rows]

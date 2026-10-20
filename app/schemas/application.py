@@ -146,6 +146,33 @@ class ArtifactRevisionRequest(BaseModel):
     review_notes: Optional[str] = Field(None, max_length=5000)
 
 
+class ApplicationStatusUpdateRequest(BaseModel):
+    status: ApplicationStatus
+    note: Optional[str] = Field(None, max_length=5000)
+
+
+class ApplicationEventResponse(BaseModel):
+    id: UUID
+    event_type: str
+    from_status: Optional[str] = None
+    to_status: Optional[str] = None
+    note: Optional[str] = None
+    created_at: datetime
+    class Config: from_attributes = True
+
+class ApplicationTaskCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255)
+    note: Optional[str] = Field(None, max_length=5000)
+    due_at: Optional[datetime] = None
+
+class ApplicationTaskResponse(ApplicationTaskCreate):
+    id: UUID
+    application_id: UUID
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+    class Config: from_attributes = True
+
+
 class ApplicationListResponse(BaseModel):
     """Paginated list of applications, mirroring the shape the frontend
     already expects (content/totalItems/totalPages) to minimize its

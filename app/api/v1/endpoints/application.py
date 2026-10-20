@@ -12,6 +12,8 @@ from app.schemas.application import (
     ApplicationListResponse,
     ArtifactReviewRequest,
     ArtifactRevisionRequest,
+    ApplicationStatusUpdateRequest,
+    ApplicationTaskCreate,
     WorkflowRequest
 )
 from app.schemas.base import APIResponse
@@ -170,3 +172,21 @@ def reject_artifact(artifact_id: UUID, request: ArtifactReviewRequest, current_u
 def revise_artifact(artifact_id: UUID, request: ArtifactRevisionRequest, current_user: CurrentUser, db: DbSession, service: ApplicationService = Depends(get_application_service)):
     result = service.revise_artifact(db, str(current_user.id), artifact_id, request)
     return APIResponse(status="success", message="Artifact revision created", data=result)
+
+
+@router.post("/{application_id}/status", response_model=APIResponse, summary="Update application pipeline status")
+def update_status(application_id: UUID, request: ApplicationStatusUpdateRequest, current_user: CurrentUser, db: DbSession, service: ApplicationService = Depends(get_application_service)):
+    return APIResponse(status="success", message="Application status updated", data=service.update_status(db, str(current_user.id), application_id, request))
+
+
+@router.get("/{application_id}/events", response_model=APIResponse, summary="List application timeline")
+def list_events(application_id: UUID, current_user: CurrentUser, db: DbSession, service: ApplicationService = Depends(get_application_service)):
+    return APIResponse(status="success", message="Application timeline retrieved", data=service.list_events(db, str(current_user.id), application_id))
+
+@router.post("/{application_id}/tasks", response_model=APIResponse)
+def create_task(application_id: UUID, request: ApplicationTaskCreate, current_user: CurrentUser, db: DbSession, service: ApplicationService = Depends(get_application_service)):
+    return APIResponse(status="success", message="Follow-up created", data=service.create_task(db, str(current_user.id), application_id, request))
+
+@router.get("/{application_id}/tasks", response_model=APIResponse)
+def list_tasks(application_id: UUID, current_user: CurrentUser, db: DbSession, service: ApplicationService = Depends(get_application_service)):
+    return APIResponse(status="success", message="Follow-ups retrieved", data=service.list_tasks(db, str(current_user.id), application_id))

@@ -376,3 +376,28 @@ class ApplicationArtifact(Base, TimestampMixin):
     unsupported_claims: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     review_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ApplicationEvent(Base, TimestampMixin):
+    """Immutable application-pipeline event; never infer submission from an artifact decision."""
+    __tablename__ = "application_events"
+    __table_args__ = (Index("ix_application_events_application_created", "application_id", "created_at"),)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    application_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    from_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    to_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ApplicationTask(Base, TimestampMixin):
+    __tablename__ = "application_tasks"
+    __table_args__ = (Index("ix_application_tasks_user_due", "user_id", "due_at"),)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    application_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
