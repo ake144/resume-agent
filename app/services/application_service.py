@@ -19,12 +19,13 @@ from app.schemas.application import (
     ArtifactRevisionRequest,
     ApplicationStatusUpdateRequest, ApplicationEventResponse,
     ApplicationTaskCreate, ApplicationTaskResponse,
+    ApplicationContactCreate, ApplicationContactResponse,
     ApplicationType,
     WorkflowRequest
 )
 from app.agents.generator import generate_application_package
 from app.agents.workflow import app_graph
-from app.db.models import Application, ApplicationArtifact, ApplicationEvent, ApplicationTask, JobPosting
+from app.db.models import Application, ApplicationArtifact, ApplicationContact, ApplicationEvent, ApplicationTask, JobPosting
 
 
 def _save_application_sync(db: Session, application: Application) -> Application:
@@ -319,3 +320,24 @@ class ApplicationService(BaseService):
         self.get_application(db, user_id, application_id)
         rows = db.query(ApplicationTask).filter(ApplicationTask.user_id == uuid.UUID(user_id), ApplicationTask.application_id == application_id).order_by(ApplicationTask.due_at.asc().nullslast(), ApplicationTask.created_at.desc()).all()
         return [ApplicationTaskResponse.model_validate(row) for row in rows]
+
+    def complete_task(self, db: Session, user_id: str, task_id: uuid.UUID) -> ApplicationTaskResponse:
+        task = db.get(ApplicationTask, task_id)
+        if task is None or task.user_id != uuid.UUID(user_id):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Follow-up not found")
+        if task.completed_at is None:
+            task.completed_at = datetime.now(timezone.utc)
+            db.add(ApplicationEvent(user_id=task.user_id, application_id=task.application_id, event_type="task_completed", note=task.title))
+            db.commit(); db.refresh(task)
+        return ApplicationTaskResponse.model_validate(task)
+
+    def create_contact(self, db: Session, user_id: str, application_id: uuid.UUID, request: ApplicationContactCreate) -> ApplicationContactResponse:
+        application = self.get_application(db, user_id, application_id)
+        contact = ApplicationContact(user_id=uuid.UUID(user_id), application_id=application.id, **request.model_dump())
+        db.add(contact); db.commit(); db.refresh(contact)
+        return ApplicationContactResponse.model_validate(contact)
+
+    def list_contacts(self, db: Session, user_id: str, application_id: uuid.UUID) -> list[ApplicationContactResponse]:
+        self.get_application(db, user_id, application_id)
+        rows = db.query(ApplicationContact).filter(ApplicationContact.user_id == uuid.UUID(user_id), ApplicationContact.application_id == application_id).order_by(ApplicationContact.created_at.desc()).all()
+        return [ApplicationContactResponse.model_validate(row) for row in rows]

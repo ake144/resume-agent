@@ -172,6 +172,18 @@ class ApplicationTaskResponse(ApplicationTaskCreate):
     created_at: datetime
     class Config: from_attributes = True
 
+class ApplicationContactCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    email: Optional[str] = Field(None, max_length=255)
+    role: Optional[str] = Field(None, max_length=255)
+    notes: Optional[str] = Field(None, max_length=5000)
+
+class ApplicationContactResponse(ApplicationContactCreate):
+    id: UUID
+    application_id: UUID
+    created_at: datetime
+    class Config: from_attributes = True
+
 
 class ApplicationListResponse(BaseModel):
     """Paginated list of applications, mirroring the shape the frontend

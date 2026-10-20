@@ -14,6 +14,7 @@ from app.schemas.application import (
     ArtifactRevisionRequest,
     ApplicationStatusUpdateRequest,
     ApplicationTaskCreate,
+    ApplicationContactCreate,
     WorkflowRequest
 )
 from app.schemas.base import APIResponse
@@ -190,3 +191,15 @@ def create_task(application_id: UUID, request: ApplicationTaskCreate, current_us
 @router.get("/{application_id}/tasks", response_model=APIResponse)
 def list_tasks(application_id: UUID, current_user: CurrentUser, db: DbSession, service: ApplicationService = Depends(get_application_service)):
     return APIResponse(status="success", message="Follow-ups retrieved", data=service.list_tasks(db, str(current_user.id), application_id))
+
+@router.post("/tasks/{task_id}/complete", response_model=APIResponse)
+def complete_task(task_id: UUID, current_user: CurrentUser, db: DbSession, service: ApplicationService = Depends(get_application_service)):
+    return APIResponse(status="success", message="Follow-up completed", data=service.complete_task(db, str(current_user.id), task_id))
+
+@router.post("/{application_id}/contacts", response_model=APIResponse)
+def create_contact(application_id: UUID, request: ApplicationContactCreate, current_user: CurrentUser, db: DbSession, service: ApplicationService = Depends(get_application_service)):
+    return APIResponse(status="success", message="Contact added", data=service.create_contact(db, str(current_user.id), application_id, request))
+
+@router.get("/{application_id}/contacts", response_model=APIResponse)
+def list_contacts(application_id: UUID, current_user: CurrentUser, db: DbSession, service: ApplicationService = Depends(get_application_service)):
+    return APIResponse(status="success", message="Contacts retrieved", data=service.list_contacts(db, str(current_user.id), application_id))
