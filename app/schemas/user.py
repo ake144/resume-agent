@@ -28,3 +28,8 @@ class UserResponse(BaseModel):
     id: UUID
     email: EmailStr
     created_at: datetime
+
+
+class ApiKeyRotationResponse(BaseModel):
+    api_key: str
+    rotated_at: datetime

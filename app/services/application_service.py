@@ -20,7 +20,7 @@ from app.schemas.application import (
     ApplicationStatusUpdateRequest, ApplicationEventResponse,
     ApplicationTaskCreate, ApplicationTaskResponse,
     ApplicationContactCreate, ApplicationContactResponse,
-    ApplicationType,
+    ApplicationStatus, ApplicationType,
     WorkflowRequest
 )
 from app.agents.generator import generate_application_package

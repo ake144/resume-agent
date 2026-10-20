@@ -33,10 +33,14 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    session_user_id = read_signed_token(request.cookies.get("resume_session", ""), "session")
-    if session_user_id:
-        user = db.get(User, session_user_id)
-        if user and user.is_active: return user
+    session_subject = read_signed_token(request.cookies.get("resume_session", ""), "session")
+    if session_subject:
+        try:
+            session_user_id, session_version = session_subject.rsplit("|", 1)
+            user = db.get(User, session_user_id)
+            if user and user.is_active and user.session_version == int(session_version): return user
+        except ValueError:
+            pass
     if credentials is None or not credentials.credentials: raise unauthorized
 
     hashed = hash_api_key(credentials.credentials)

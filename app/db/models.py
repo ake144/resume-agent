@@ -43,6 +43,7 @@ class User(Base, TimestampMixin):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     hashed_api_key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    session_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
 
 class UserProfile(Base, TimestampMixin):

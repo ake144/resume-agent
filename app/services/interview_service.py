@@ -53,8 +53,14 @@ class InterviewService:
         session = db.get(InterviewSession, session_id)
         if session is None or session.user_id != user_uuid:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Interview session not found")
+        if data.question_index >= len(session.question_set or []):
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Question not found in this interview session")
         score, feedback = self._rubric(data.answer)
         answer = InterviewAnswer(user_id=user_uuid, interview_session_id=session.id, feedback=feedback, rubric_score=score, **data.model_dump())
+        plan = list(session.improvement_plan or [])
+        if feedback not in plan:
+            plan.append(feedback)
+        session.improvement_plan = plan[-5:]
         db.add(answer); db.commit(); db.refresh(answer)
         return InterviewAnswerResponse.model_validate(answer)
 
@@ -69,7 +75,8 @@ class InterviewService:
         session = db.get(InterviewSession, session_id)
         if session is None or session.user_id != uuid.UUID(user_id):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Interview session not found")
-        # The schema foreign key is ON DELETE CASCADE, so answer transcripts
-        # and their coaching feedback are removed with this session.
+        # Delete explicitly as well as relying on the database cascade. This
+        # keeps transcript retention behavior consistent in every test and DB.
+        db.query(InterviewAnswer).filter(InterviewAnswer.interview_session_id == session.id).delete(synchronize_session=False)
         db.delete(session)
         db.commit()

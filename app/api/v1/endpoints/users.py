@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.core.security import generate_api_key, hash_api_key, make_signed_token, read_signed_token
 from app.core.config import settings
 from app.db.models import User, UserProfile
-from app.schemas.user import UserRegistrationRequest, UserRegistrationResponse, UserResponse
+from app.schemas.user import ApiKeyRotationResponse, UserRegistrationRequest, UserRegistrationResponse, UserResponse
 
 router = APIRouter(tags=["users"])
 logger = logging.getLogger(__name__)
@@ -72,6 +72,16 @@ def get_me(current_user: Annotated[User, Depends(get_current_user)]):
     )
 
 
+@router.post("/api-key/rotate", response_model=ApiKeyRotationResponse)
+def rotate_api_key(current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]):
+    """Replace an API key. The new key is deliberately returned once only."""
+    raw_key = generate_api_key()
+    current_user.hashed_api_key = hash_api_key(raw_key)
+    db.commit()
+    db.refresh(current_user)
+    return ApiKeyRotationResponse(api_key=raw_key, rotated_at=current_user.updated_at)
+
+
 @router.post("/magic-link", status_code=status.HTTP_202_ACCEPTED)
 def request_magic_link(email: str, db: Annotated[Session, Depends(get_db)]):
     user = db.query(User).filter(User.email == email.lower()).first()
@@ -86,5 +96,13 @@ def verify_magic_link(token: str, response: Response, db: Annotated[Session, Dep
     user_id = read_signed_token(token, "magic-link")
     user = db.get(User, user_id) if user_id else None
     if user is None or not user.is_active: raise HTTPException(status_code=401, detail="Invalid or expired sign-in link")
-    response.set_cookie("resume_session", make_signed_token(str(user.id), "session", 60 * 60 * 24 * 7), httponly=True, samesite="lax", secure=False, max_age=60 * 60 * 24 * 7)
+    response.set_cookie("resume_session", make_signed_token(f"{user.id}|{user.session_version}", "session", 60 * 60 * 24 * 7), httponly=True, samesite="lax", secure=False, max_age=60 * 60 * 24 * 7)
     return {"id": str(user.id), "email": user.email}
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(response: Response, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]):
+    """Remove the browser session cookie; API keys remain separately manageable."""
+    current_user.session_version += 1
+    db.commit()
+    response.delete_cookie("resume_session", httponly=True, samesite="lax", secure=False)
